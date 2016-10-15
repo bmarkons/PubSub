@@ -14,5 +14,5 @@ bool InitializeWindowsSockets()
 
 bool connectToServer(SOCKET* connectSocket, sockaddr_in* serverAddress)
 {
-	
+	return true;
 }
