@@ -1,3 +1,5 @@
 #pragma once
-bool InitializeWindowsSockets();
-bool connectToServer(SOCKET*, sockaddr_in*);
+
+void InitializeWindowsSockets();
+void connectToServer(SOCKET*, char*, u_int);
+void disconnect(SOCKET*);
