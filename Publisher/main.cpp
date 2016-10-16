@@ -1,18 +1,15 @@
-// Publisher.cpp : Defines the entry point for the console application.
-//
-
 #include "stdafx.h"
 
-
-int main()
+int main(int argc, char **argv)
 {
-	SOCKET* connectSocket = (SOCKET*)calloc(1, sizeof(SOCKET));
-	sockaddr_in* serverAddress = (sockaddr_in*)calloc(1, sizeof(sockaddr_in));
+	InitializeWindowsSockets();
 
-	if (InitializeWindowsSockets() == false) {
-		return 1;
-	}
-	connectToServer(connectSocket, serverAddress);
+	SOCKET connectSocket = INVALID_SOCKET;
+	connectToServer(&connectSocket, argv[1], DEFAULT_PORT);
+	printf("You are connected to PubSubEngine!\n");
+
+	publishing_loop(&connectSocket);
+
+	disconnect(&connectSocket);
 	return 0;
 }
-
