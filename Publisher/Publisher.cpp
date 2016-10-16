@@ -11,7 +11,7 @@ void InitializeWindowsSockets()
 	}
 }
 
-void connectToServer(SOCKET* connectSocket, char* ip_address, u_int port)
+void connectToServer(SOCKET* connectSocket, char* ipv4_address, u_int port)
 {
 	*connectSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 	if (*connectSocket == INVALID_SOCKET) {
@@ -19,10 +19,10 @@ void connectToServer(SOCKET* connectSocket, char* ip_address, u_int port)
 		WSACleanup();
 		exit(EXIT_FAILURE);
 	}
-	
+
 	sockaddr_in serverAddress;
 	serverAddress.sin_family = AF_INET;
-	serverAddress.sin_addr.s_addr = inet_addr(ip_address);
+	serverAddress.sin_addr.s_addr = inet_addr(ipv4_address);
 	serverAddress.sin_port = htons(port);
 
 	if (connect(*connectSocket, (SOCKADDR*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) {
@@ -36,4 +36,53 @@ void connectToServer(SOCKET* connectSocket, char* ip_address, u_int port)
 void disconnect(SOCKET* socket) {
 	closesocket(*socket);
 	WSACleanup();
+	printf("Connection closed.\n");
+}
+
+void publishing_loop(SOCKET* socket) {
+	char command;
+	while (true) {
+		printf("Do you want to publish message? [y/n]");
+		scanf(" %c", &command);
+		system("cls");
+
+		if (command == 'n') {
+			disconnect(socket);
+			exit(EXIT_SUCCESS);
+		}
+
+		char message, topic;
+		input_message(&message);
+		input_topic(&topic);
+		system("cls");
+
+		publish(message, topic, socket);
+	}
+}
+
+void input_message(char* message) {
+	printf("Input message (one character) :\n");
+	scanf(" %c", message);
+}
+
+void input_topic(char* topic) {
+	printf("Input topic (one character) :\n");
+	scanf(" %c", topic);
+}
+
+void publish(char message, char topic, SOCKET* socket) {
+	char data_package[2];
+	make_data_package(message, topic, data_package);
+	int iResult = send(*socket, data_package, 2, 0);
+	if (iResult == SOCKET_ERROR) {
+		printf("Error occured while publishing...\n");
+	}
+	else {
+		printf("Awesome! Message '%c' published on topic '%c'!\n", message, topic);
+	}
+}
+
+void make_data_package(char message, char topic, char* data_package) {
+	data_package[0] = topic;
+	data_package[1] = message;
 }

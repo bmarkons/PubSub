@@ -6,9 +6,9 @@ int main(int argc, char **argv)
 
 	SOCKET connectSocket = INVALID_SOCKET;
 	connectToServer(&connectSocket, argv[1], DEFAULT_PORT);
+	printf("You are connected to PubSubEngine!\n");
 
-	//test message
-	//send(connectSocket, "marko", (int)strlen("srki gay") + 1, 0);
+	publishing_loop(&connectSocket);
 
 	disconnect(&connectSocket);
 	return 0;
