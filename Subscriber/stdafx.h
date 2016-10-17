@@ -9,4 +9,5 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <conio.h>
+#include <assert.h>
 #include "Subscriber.h"

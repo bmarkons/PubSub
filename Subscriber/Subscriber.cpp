@@ -52,12 +52,12 @@ void input_topic(char* topic) {
 
 void subscribe(SOCKET * socket, char topic)
 {
-	int iResult = send(*socket,&topic, 1, 0);
+	int iResult = send(*socket, &topic, 1, 0);
 	if (iResult == SOCKET_ERROR) {
 		printf("Error occured while subscribing...\n");
 	}
 	else {
-		printf("Woow NICE!Now you are subscribed for %c topic!\n",topic);
+		printf("Woow NICE!Now you are subscribed for %c topic!\n", topic);
 	}
 }
 
@@ -66,56 +66,145 @@ void make_data_package(char message, char topic, char* data_package) {
 	data_package[1] = message;
 }
 
-void waitForMessage(SOCKET * socket,unsigned buffer_size)
+void waitForMessage(SOCKET * socket, unsigned buffer_size)
 {
-
-
 	int iResult;
-	SOCKET acceptedSocket;
-	SOCKET listenSocket = *socket;
-
 	char *recvbuf = (char*)malloc(buffer_size);
+	//set parameter for NonBlocking mode
+	setNonBlockingMode(socket);
 
 	printf("\n Waiting for messages...\n");
 	do
 	{
-		// Wait for clients and accept client connections.
-		// Returning value is acceptedSocket used for further
-		// Client<->Server communication. This version of
-		// server will handle only one client.
-		acceptedSocket = accept(listenSocket, NULL, NULL);
+		iResult = Select(socket);
 
-		if (acceptedSocket == INVALID_SOCKET)
+		// lets check if there was an error during select
+		if (iResult == SOCKET_ERROR)
 		{
-			printf("accept failed with error: %d\n", WSAGetLastError());
-			closesocket(listenSocket);
-			WSACleanup();
-			exit(EXIT_FAILURE);
+			fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
+			continue;
+		}
+		// now, lets check if there are any sockets ready
+		if (iResult == 0)
+		{
+			// there are no ready sockets, sleep for a while and check again
+			Sleep(SERVER_SLEEP_TIME);
+			continue;
 		}
 
-		do
+		// Receive data until the client shuts down the connection
+		iResult = recv(*socket, recvbuf, buffer_size, 0);
+		if (iResult > 0)
 		{
-			// Receive data until the client shuts down the connection
-			iResult = recv(acceptedSocket, recvbuf, buffer_size, 0);
-			if (iResult > 0)
-			{
-				printf("Message received from client: %s.\n", recvbuf);
-			}
-			else if (iResult == 0)
-			{
-				// connection was closed gracefully
-				printf("Connection with client closed.\n");
-				closesocket(acceptedSocket);
-			}
-			else
-			{
-				// there was an error during recv
-				printf("recv failed with error: %d\n", WSAGetLastError());
-				closesocket(acceptedSocket);
-			}
-		} while (iResult > 0);
-
+			recvbuf[iResult] = NULL;
+			printf("Message received from client: %s.\n", recvbuf);
+		}
+		else if (iResult == 0)
+		{
+			// connection was closed gracefully
+			printf("Connection with client closed.\n");
+			closesocket(*socket);
+			exit(EXIT_FAILURE);
+		}
+		else
+		{
+			// there was an error during recv
+			printf("recv failed with error: %d\n", WSAGetLastError());
+			closesocket(*socket);
+			exit(EXIT_FAILURE);
+		}
 		// here is where server shutdown loguc could be placed
 
 	} while (1);
+}
+
+void checkConfimation(SOCKET *socket) {
+
+	int iResult;
+	char recvbuf;
+
+	bool successSubscribed = false; 
+
+	setNonBlockingMode(socket);
+	while (!successSubscribed) {
+
+		iResult = Select(socket);
+
+		// lets check if there was an error during select
+		if (iResult == SOCKET_ERROR)
+		{
+			fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
+			continue;
+		}
+		// now, lets check if there are any sockets ready
+		if (iResult == 0)
+		{
+			// there are no ready sockets, sleep for a while and check again
+			Sleep(SERVER_SLEEP_TIME);
+			continue;
+		}
+
+		// Receive data until the client shuts down the connection
+		iResult = recv(*socket, &recvbuf, 1, 0);
+
+		if (iResult > 0)
+		{
+			if (recvbuf == SUBSCRIBE_SUCCESS) {
+				printf("Successfuly subscribed!\n");
+				successSubscribed = true;
+			}
+			else {
+				printf("Error while subscribing!\n");
+				closesocket(*socket);
+				getchar();
+				exit(EXIT_FAILURE);
+			}
+		}
+		else if (iResult == 0)
+		{
+			// connection was closed gracefully
+			printf("Connection with client closed.\n");
+			closesocket(*socket);
+			exit(EXIT_FAILURE);
+		}
+		else
+		{
+			// there was an error during recv
+			printf("recv failed with error while subscribing: %d\n", WSAGetLastError());
+			closesocket(*socket);
+			exit(EXIT_FAILURE);
+		}
+	}
+}
+
+void setNonBlockingMode(SOCKET * socket)
+{
+	// Set socket to nonblocking mode
+	unsigned long int nonBlockingMode = 1;
+	int iResult = ioctlsocket(*socket, FIONBIO, &nonBlockingMode);
+
+	if (iResult == SOCKET_ERROR)
+	{
+		printf("ioctlsocket failed with error: %ld\n", WSAGetLastError());
+		closesocket(*socket);
+		exit(EXIT_FAILURE);
+	}
+}
+
+int Select(SOCKET * socket)
+{
+	// Initialize select parameters
+	FD_SET set;
+	timeval timeVal;
+
+	FD_ZERO(&set);
+	// Add socket we will wait to read from
+	FD_SET(*socket, &set);
+
+	// Set timeouts to zero since we want select to return
+	// instantaneously
+	timeVal.tv_sec = 0;
+	timeVal.tv_usec = 0;
+
+	return 	select(0 /* ignored */, &set, NULL, NULL, &timeVal);
 }

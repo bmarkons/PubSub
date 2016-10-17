@@ -8,7 +8,6 @@
 int main(int argc, char **argv)
 {
 	InitializeWindowsSockets();
-
 	SOCKET connectSocket = INVALID_SOCKET;
 	connectToServer(&connectSocket, argv[1], DEFAULT_PORT);
 
@@ -17,11 +16,17 @@ int main(int argc, char **argv)
 	char topic;
 	input_topic(&topic);
 
-	subscribe(&connectSocket,topic);
+	//subsribing for specific topic
+	subscribe(&connectSocket, topic);
 
-	//waitForMessage(&connectSocket, DEFAULT_BUFLEN);
-	getchar();
+	//check if server returns a message that everything is ok
+	checkConfimation(&connectSocket);
+
+
+	waitForMessage(&connectSocket, DEFAULT_BUFLEN);
+	
 	disconnect(&connectSocket);
+
 	return 0;
 }
 
