@@ -128,6 +128,32 @@ DWORD WINAPI listen_publisher(LPVOID lpParam) {
 	return 0;
 }
 
+DWORD WINAPI accept_subscriber(LPVOID lpParam) {
+	SOCKET listenSocket = INVALID_SOCKET;
+	SOCKET* acceptedSocket;
+	List *topic_contents = (List*)lpParam;
+
+	start_listening(&listenSocket, LISTEN_SUBSCRIBER_PORT);
+	printf("PubSubEngine is ready to accept subscribers.\n");
+
+	SOCKET socket;
+
+	while (true) {
+		socket = INVALID_SOCKET;
+		socket = accept(listenSocket, NULL, NULL);
+		if (socket != INVALID_SOCKET) {
+
+			acceptedSocket = (SOCKET*)malloc(sizeof(SOCKET));
+			memcpy(acceptedSocket, &socket, sizeof(SOCKET));
+
+			bool success = receiveTopic(acceptedSocket, 2, topic_contents);
+
+		}
+	}
+
+	return 0;
+}
+
 void start_listening(SOCKET* listenSocket, char* port) {
 	int iResult;
 
@@ -189,4 +215,108 @@ void start_listening(SOCKET* listenSocket, char* port) {
 	}
 
 	printf("PubSubEngine is ready to accept publishers.\n");
+}
+
+bool receiveTopic(SOCKET *socket, unsigned buffer_size, List *topic_contents) {
+	int iResult;
+	char *recvbuf = (char*)malloc(buffer_size);
+	//set parameter for NonBlocking mode
+	setNonBlockingMode(socket);
+
+	printf("\n Waiting for messages...\n");
+	do
+	{
+		iResult = Select(socket);
+
+		// lets check if there was an error during select
+		if (iResult == SOCKET_ERROR)
+		{
+			fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
+			continue;
+		}
+		// now, lets check if there are any sockets ready
+		if (iResult == 0)
+		{
+			// there are no ready sockets, sleep for a while and check again
+			Sleep(SERVER_SLEEP_TIME);
+			continue;
+		}
+
+		// Receive data until the client shuts down the connection
+		iResult = recv(*socket, recvbuf, buffer_size, 0);
+		if (iResult > 0)
+		{
+			recvbuf[iResult] = NULL;
+
+			bool success = push_socket_on_topic(topic_contents, socket, recvbuf[0]);
+
+			//TODO if TRUE -> send OK, else FAIL
+			char c;
+			c = success ? SUBSCRIBE_SUCCESS : SUBSCRIBE_FAIL;
+			//confirmation for subscriber
+			if (success)
+				printf("New subscriber %d for topic: %s.\n", (int)*socket, recvbuf);
+			else {
+				printf("Subscriber %d fail while trying to subscribe for topic: %s.\n", (int)*socket, recvbuf);
+			}
+			send(*socket, &c, 1, 0);
+
+			return true;
+		}
+		else if (iResult == 0)
+		{
+			// connection was closed gracefully
+			printf("Connection with client closed.\n");
+			closesocket(*socket);
+			//exit(EXIT_FAILURE);
+			return false;
+		}
+		else
+		{
+			// there was an error during recv
+			printf("recv failed with error: %d\n", WSAGetLastError());
+			closesocket(*socket);
+			//exit(EXIT_FAILURE);
+			return false;
+		}
+		// here is where server shutdown loguc could be placed
+
+	} while (1);
+}
+
+void free_topic_content(void * data) {
+	free(*(TopicContent**)data);
+}
+
+void free_socket(void * data) {
+	free(*(SOCKET**)data);
+}
+
+bool push_socket_on_topic(List *topic_contents, SOCKET *socket, char topic) {
+
+	TopicContent *topic_content = list_find(topic_contents, topic);
+
+	if (topic_content == NULL) {
+		return false;
+	}
+	list_append(&topic_content->sockets, socket);
+
+	return true;
+}
+
+TopicContent* list_find(List *list, char find_topic) {
+	EnterCriticalSection(&list->cs);
+
+	ListNode *node = list->head;
+	while (node != NULL) {
+		TopicContent *current_topic_content = (TopicContent*)node->data;
+		char current_topic = current_topic_content->topic;
+		if (current_topic == find_topic) {
+			return current_topic_content;
+		}
+		node = node->next;
+	}
+
+	LeaveCriticalSection(&list->cs);
+	return NULL;
 }
