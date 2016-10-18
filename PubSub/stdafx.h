@@ -1,7 +1,8 @@
 #pragma once
 
 #define WIN32_LEAN_AND_MEAN
-#define DEFAULT_PORT 27016
+#define LISTEN_PUBLISHER_PORT "27017"
+#define LISTEN_SUBSCRIBER_PORT "27018"
 
 #include <winsock2.h>
 #include <windows.h>
@@ -9,3 +10,4 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <conio.h>
+#include "PubSub.h"
