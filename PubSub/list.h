@@ -3,6 +3,7 @@
 typedef void(*freeFunction)(void *);
 
 typedef bool(*listIterator)(void *);
+typedef bool(*listCompare)(void *, void*);
 
 typedef struct _listNode {
 	void *data;
@@ -28,5 +29,5 @@ int list_size(List *list);
 void list_for_each(List *list, listIterator iterator);
 void list_head(List *list, void *element, bool removeFromList);
 void list_tail(List *list, void *element);
-
+void* list_find(List *list, void *element, listCompare comparator);
 

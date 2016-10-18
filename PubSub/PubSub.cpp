@@ -117,21 +117,20 @@ void free_socket(void * data) {
 	free(*(SOCKET**)data);
 }
 
-TopicContent* list_find(List *list, char find_topic) {
-	EnterCriticalSection(&list->cs);
+bool compare_node_with_topic(void *listNode, void* element2) {
 
-	ListNode *node = list->head;
-	while (node != NULL) {
-		TopicContent *current_topic_content = (TopicContent*)node->data;
-		char current_topic = current_topic_content->topic;
-		if (current_topic == find_topic) {
-			return current_topic_content;
-		}
-		node = node->next;
+	ListNode* node = (ListNode*)listNode;
+	char find_topic = *(char*)element2;
+
+	TopicContent *current_topic_content = (TopicContent*)node->data;
+	char current_topic = current_topic_content->topic;
+
+	if (current_topic == find_topic) {
+		return true;
 	}
-
-	LeaveCriticalSection(&list->cs);
-	return NULL;
+	else {
+		return false;
+	}
 }
 
 #pragma endregion
@@ -347,11 +346,17 @@ bool receiveTopic(SOCKET *socket, unsigned buffer_size, List *topic_contents) {
 
 bool push_socket_on_topic(List *topic_contents, SOCKET *socket, char topic) {
 
-	TopicContent *topic_content = list_find(topic_contents, topic);
+	//return node from list where is comparator return true
+	ListNode *finded_content = (ListNode*)list_find(topic_contents, &topic, compare_node_with_topic);
 
-	if (topic_content == NULL) {
+	if (finded_content == NULL) {
 		return false;
 	}
+
+	//extract data from finded content
+	TopicContent *topic_content = (TopicContent*)finded_content->data;
+
+
 	list_append(&topic_content->sockets, socket);
 
 	return true;
