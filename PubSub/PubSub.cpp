@@ -104,6 +104,8 @@ DWORD WINAPI accept_publisher(LPVOID lpParam) {
 	SOCKET listenSocket = INVALID_SOCKET;
 	SOCKET* acceptedSocket;
 	start_listening(&listenSocket, LISTEN_PUBLISHER_PORT);
+	printf("PubSubEngine is ready to accept publishers.\n");
+
 	while (true) {
 		SOCKET socket = INVALID_SOCKET;
 		socket = accept(listenSocket, NULL, NULL);
@@ -168,7 +170,7 @@ void start_listening(SOCKET* listenSocket, char* port) {
 	hints.ai_flags = AI_PASSIVE;     // 
 
 									 // Resolve the server address and port
-	iResult = getaddrinfo(NULL, LISTEN_PUBLISHER_PORT, &hints, &resultingAddress);
+	iResult = getaddrinfo(NULL, port, &hints, &resultingAddress);
 	if (iResult != 0)
 	{
 		printf("getaddrinfo failed with error: %d\n", iResult);
@@ -214,7 +216,6 @@ void start_listening(SOCKET* listenSocket, char* port) {
 		exit(EXIT_FAILURE);
 	}
 
-	printf("PubSubEngine is ready to accept publishers.\n");
 }
 
 bool receiveTopic(SOCKET *socket, unsigned buffer_size, List *topic_contents) {

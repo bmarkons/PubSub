@@ -1,7 +1,7 @@
 #pragma once
 
 #define WIN32_LEAN_AND_MEAN
-#define DEFAULT_PORT 27016
+#define DEFAULT_PORT 27018
 
 #include <winsock2.h>
 #include <windows.h>
