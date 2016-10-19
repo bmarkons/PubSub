@@ -20,7 +20,8 @@ typedef struct _param_struct {
 #pragma region TOPIC_LIST
 void free_topic_content(void * data);
 void free_socket(void * data);
-bool compare_node_with_topic(void *listNode, void* element2);
+bool compare_node_with_topic(ListNode *listNode, void* param);
+bool sendIterator(ListNode *listNode, void* param);
 #pragma endregion
 
 #pragma region THREAD_FUNCTIONS
@@ -35,6 +36,7 @@ void InitializeWindowsSockets();
 void setNonBlockingMode(SOCKET* socket);
 int ready_for_receive(SOCKET* socket);
 void start_listening(SOCKET* listenSocket, char* port);
+void sendToSockets(List *sockets, char message);
 #pragma endregion
 
 #pragma region PUBLISHER

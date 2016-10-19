@@ -117,12 +117,11 @@ void free_socket(void * data) {
 	free(*(SOCKET**)data);
 }
 
-bool compare_node_with_topic(void *listNode, void* element2) {
+bool compare_node_with_topic(ListNode* listNode, void* param) {
 
-	ListNode* node = (ListNode*)listNode;
-	char find_topic = *(char*)element2;
+	char find_topic = *(char*)param;
 
-	TopicContent *current_topic_content = (TopicContent*)node->data;
+	TopicContent *current_topic_content = (TopicContent*)listNode->data;
 	char current_topic = current_topic_content->topic;
 
 	if (current_topic == find_topic) {
@@ -131,6 +130,17 @@ bool compare_node_with_topic(void *listNode, void* element2) {
 	else {
 		return false;
 	}
+}
+
+bool sendIterator(ListNode *listNode, void* param) {
+
+	char message = *(char*)param;
+
+	SOCKET socket = *(SOCKET*)listNode->data;
+
+	send(socket, &message, 1, 0);
+
+	return true;
 }
 
 #pragma endregion
@@ -200,10 +210,21 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 }
 
 DWORD WINAPI consume_messages(LPVOID lpParam) {
-
+	TopicContent *topic_content = (TopicContent*)lpParam;
+	char message;
+	while (true) {
+		
+		bool success = Pop(&topic_content->message_buffer, &message);
+		if (success) {
+			sendToSockets(&topic_content->sockets, message);
+		}
+		Sleep(50);		
+	}
 	return 0;
 }
-
+void sendToSockets(List *sockets, char message) {
+	list_for_each_param(sockets, sendIterator, &message);
+}
 #pragma endregion
 
 #pragma region PUBLISHER
