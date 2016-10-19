@@ -125,3 +125,18 @@ int list_size(List *list)
 {
 	return list->logicalLength;
 }
+
+void* list_find(List *list, void *element, listCompare comparator) {
+	EnterCriticalSection(&list->cs);
+
+	ListNode *node = list->head;
+	while (node != NULL) {
+		if (comparator(node, element)) {
+			return node;
+		}
+		node = node->next;
+	}
+
+	LeaveCriticalSection(&list->cs);
+	return NULL;
+}

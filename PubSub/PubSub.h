@@ -19,6 +19,7 @@ typedef struct _param_struct {
 TopicContent* list_find(List *list, char topic);
 void free_topic_content(void * data);
 void free_socket(void * data);
+bool compare_node_with_topic(void *listNode, void* element2);
 #pragma endregion
 
 #pragma region THREAD_FUNCTIONS
