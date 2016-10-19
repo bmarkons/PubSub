@@ -8,6 +8,7 @@ void load_topics(List *topic_contents) {
 	for (int i = 0; i < 10; i++) {
 		TopicContent tc;
 		tc.topic = i + '0';
+		InitializeBuffer(&tc.message_buffer, INIT_BUFFER_SIZE);
 		list_new(&tc.sockets, sizeof(SOCKET), free_socket);
 
 		list_append(topic_contents, &tc);

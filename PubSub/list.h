@@ -10,7 +10,7 @@ typedef struct _listNode {
 	struct _listNode *next;
 } ListNode;
 
-typedef struct _list{
+typedef struct _list {
 	int logicalLength;
 	int elementSize;
 	ListNode *head;
@@ -23,7 +23,7 @@ void list_new(List *list, int elementSize, freeFunction freeFn);
 void list_destroy(List *list);
 
 void list_prepend(List *list, void *element);
-void list_append(List *list, void *element);
+ListNode* list_append(List *list, void *element);
 int list_size(List *list);
 
 void list_for_each(List *list, listIterator iterator);

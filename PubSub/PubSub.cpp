@@ -200,6 +200,7 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 }
 
 DWORD WINAPI consume_messages(LPVOID lpParam) {
+
 	return 0;
 }
 
@@ -266,11 +267,31 @@ void waitForMessage(SOCKET * socket, unsigned buffer_size, List* topic_contents)
 }
 
 bool pushMessage(char topic, char message, List* topic_contents) {
-	return false;
+	ListNode* node = (ListNode*)list_find(topic_contents, &topic, compare_node_with_topic);
+
+	if (node == NULL) {
+		return false;
+	}
+
+	TopicContent* topic_content = (TopicContent*)node->data;
+	//PrintBuffer(&topic_content->message_buffer);
+	Push(&topic_content->message_buffer, message);
+	//PrintBuffer(&topic_content->message_buffer);
+
+
+	return true;
 }
 
 void create_topic(List* topic_contents, char topic) {
+	TopicContent new_topic;
+	new_topic.topic = topic;
+	list_new(&new_topic.sockets, sizeof(SOCKET), free_socket);
+	InitializeBuffer(&new_topic.message_buffer, INIT_BUFFER_SIZE);
 
+	ListNode* node = list_append(topic_contents, &new_topic);
+
+	HANDLE consume_message_handle = CreateThread(NULL, 0, &consume_messages, node->data, 0, NULL);
+	// TODO: add handle to HANDLE_LIST
 }
 
 #pragma endregion

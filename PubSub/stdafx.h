@@ -13,5 +13,6 @@
 #include <assert.h>
 
 #include "list.h"
+#include "buffer.h"
 #include "PubSub.h"
 

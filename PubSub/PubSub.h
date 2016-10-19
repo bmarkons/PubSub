@@ -4,10 +4,12 @@
 #define SUBSCRIBE_FAIL 6
 #define SERVER_SLEEP_TIME 50
 #define DEFAULT_BUFLEN 512
+#define INIT_BUFFER_SIZE 30
 
 typedef struct _topic_content {
 	char topic;
 	List sockets;
+	TBuffer message_buffer;
 }TopicContent;
 
 typedef struct _param_struct {
@@ -16,7 +18,6 @@ typedef struct _param_struct {
 }ParamStruct;
 
 #pragma region TOPIC_LIST
-TopicContent* list_find(List *list, char topic);
 void free_topic_content(void * data);
 void free_socket(void * data);
 bool compare_node_with_topic(void *listNode, void* element2);
