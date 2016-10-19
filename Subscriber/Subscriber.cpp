@@ -71,7 +71,7 @@ void waitForMessage(SOCKET * socket, unsigned buffer_size)
 	int iResult;
 	char *recvbuf = (char*)malloc(buffer_size);
 	//set parameter for NonBlocking mode
-	setNonBlockingMode(socket);
+	set_nonblocking_mode(socket);
 
 	printf("\n Waiting for messages...\n");
 	do
@@ -125,7 +125,7 @@ void checkConfimation(SOCKET *socket) {
 
 	bool successSubscribed = false; 
 
-	setNonBlockingMode(socket);
+	set_nonblocking_mode(socket);
 	while (!successSubscribed) {
 
 		iResult = Select(socket);
@@ -177,7 +177,7 @@ void checkConfimation(SOCKET *socket) {
 	}
 }
 
-void setNonBlockingMode(SOCKET * socket)
+void set_nonblocking_mode(SOCKET * socket)
 {
 	// Set socket to nonblocking mode
 	unsigned long int nonBlockingMode = 1;

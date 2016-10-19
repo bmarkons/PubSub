@@ -14,5 +14,5 @@ void subscribe(SOCKET* socket, char topic);
 void make_data_package(char message, char topic, char* data_package);
 void waitForMessage(SOCKET* socket, unsigned buffer_size);
 void checkConfimation(SOCKET* socket);
-void setNonBlockingMode(SOCKET* socket);
+void set_nonblocking_mode(SOCKET* socket);
 int Select(SOCKET* socket);
