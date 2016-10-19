@@ -22,7 +22,7 @@ void set_nonblocking_mode(SOCKET * socket)
 	{
 		printf("ioctlsocket failed with error: %ld\n", WSAGetLastError());
 		closesocket(*socket);
-		exit(EXIT_FAILURE);
+		//exit(EXIT_FAILURE);
 	}
 }
 
@@ -54,6 +54,38 @@ bool is_ready_for_receive(SOCKET * socket) {
 		Sleep(SERVER_SLEEP_TIME);
 		return false;
 	}
+}
+
+bool is_ready_for_send(SOCKET * socket) {
+	// Initialize select parameters
+	FD_SET set;
+	timeval timeVal;
+
+	FD_ZERO(&set);
+	// Add socket we will wait to read from
+	FD_SET(*socket, &set);
+
+	// Set timeouts to zero since we want select to return
+	// instantaneously
+	timeVal.tv_sec = 0;
+	timeVal.tv_usec = 0;
+
+	int iResult = select(0 /* ignored */, NULL, &set, NULL, &timeVal); //3rd parametar is set because need select for send
+																	   // lets check if there was an error during select
+	if (iResult == SOCKET_ERROR)
+	{
+		fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
+		return false;
+	}
+	// now, lets check if there are any sockets ready
+	if (iResult == 0)
+	{
+		// there are no ready sockets, sleep for a while and check again
+		Sleep(SERVER_SLEEP_TIME);
+		return false;
+	}
+
+	return true;
 }
 
 void start_listening(SOCKET* listenSocket, char* port) {
@@ -119,14 +151,28 @@ void start_listening(SOCKET* listenSocket, char* port) {
 }
 
 bool receive(SOCKET* socket, char* recvbuf) {
-	int topic_length = 1;
+	int topic_length = 0;
 	int iResult;
 	int total_received = 0;
+	bool firstRecv = true;
 	do {
-		iResult = recv(*socket, recvbuf + total_received, topic_length - total_received, 0);
-		total_received += iResult;
+		if (firstRecv) {
+			iResult = recv(*socket, recvbuf + total_received, 1, 0);
+			if (iResult == 0) {
+				printf("Message hasn't a header\n");
+				return false;
+			}
+			topic_length = recvbuf[0];
+			firstRecv = false;
+		}
+		else {
+			iResult = recv(*socket, recvbuf + total_received, DEFAULT_BUFLEN, 0);
+			total_received += iResult;
+		}
+		
 	} while (total_received < topic_length);
 
+	recvbuf[total_received] = NULL;  //set the end of the string
 	return iResult < 0 ? false : true;
 }
 
@@ -152,6 +198,56 @@ void wait_for_message(SOCKET * socket, List* topic_contents, messageHandler mess
 			}
 		}
 	} while (1);
+}
+
+void send_to_subscriber(SOCKET * socket, char message)
+{
+	while (true) {
+		//set parameter for NonBlocking mode
+		set_nonblocking_mode(socket);
+
+		bool ready = is_ready_for_send(socket);
+		bool success;
+
+		if (ready) {
+			char* package = make_data_package(message);
+			success = Send(socket, package);
+			free(package);
+			if (success) {
+				printf("Message sent to subcriber : %d", *socket);
+				break;
+			}
+			else {
+				printf("Error occured while sending to subscriber...\n");
+				closesocket(*socket);
+				break;
+			}
+		}
+	}
+}
+
+bool Send(SOCKET* socket, char *package) {
+	int package_length = 2;
+	int iResult;
+	int total_sent = 0;
+	do {
+		iResult = send(*socket, package + total_sent, package_length - total_sent, 0);
+		total_sent += iResult;
+		if (iResult < 0) {
+			break;
+		}
+	} while (total_sent < package_length);
+
+	return iResult == SOCKET_ERROR ? false : true;
+}
+
+char* make_data_package(char message) {
+	//int size_of_package = strlen(topic);
+	int size_of_package = 1;
+	char * data_package = (char*)malloc(sizeof(char)*(size_of_package + 1));
+	data_package[0] = size_of_package;
+	data_package[1] = message;
+	return data_package;
 }
 
 #pragma endregion
@@ -187,7 +283,7 @@ bool sendIterator(ListNode *listNode, void* param) {
 
 	SOCKET socket = *(SOCKET*)listNode->data;
 
-	send(socket, &message, 1, 0);
+	send_to_subscriber(&socket, message);
 
 	return true;
 }

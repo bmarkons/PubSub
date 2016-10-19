@@ -148,6 +148,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="Subscriber.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />

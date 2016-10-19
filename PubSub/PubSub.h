@@ -3,7 +3,7 @@
 #define SUBSCRIBE_SUCCESS 5
 #define SUBSCRIBE_FAIL 6
 #define SERVER_SLEEP_TIME 50
-#define DEFAULT_BUFLEN 2
+#define DEFAULT_BUFLEN 10
 #define INIT_BUFFER_SIZE 30
 
 typedef struct _topic_content {
@@ -26,6 +26,10 @@ bool is_ready_for_receive(SOCKET* socket);
 void start_listening(SOCKET* listenSocket, char* port);
 bool receive(SOCKET* socket, char* recvbuf);
 void wait_for_message(SOCKET * socket, List* topic_contents, messageHandler message_handler);
+void send_to_subscriber(SOCKET * socket, char message);
+bool Send(SOCKET* socket, char *package);
+char* make_data_package(char message);
+bool is_ready_for_send(SOCKET * socket);
 #pragma endregion
 
 

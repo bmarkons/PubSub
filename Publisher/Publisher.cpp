@@ -71,9 +71,10 @@ void input_topic(char* topic) {
 }
 
 void publish(char message, char topic, SOCKET* socket) {
-	char data_package[2];
-	make_data_package(message, topic, data_package);
-	int iResult = send(*socket, data_package, 2, 0);
+
+	char* data_package = make_data_package(message, topic);
+	int iResult = send(*socket, data_package, 3, 0);
+	free(data_package);
 	if (iResult == SOCKET_ERROR) {
 		printf("Error occured while publishing...\n");
 	}
@@ -82,7 +83,12 @@ void publish(char message, char topic, SOCKET* socket) {
 	}
 }
 
-void make_data_package(char message, char topic, char* data_package) {
-	data_package[0] = topic;
-	data_package[1] = message;
+char* make_data_package(char message, char topic) {
+	int size_of_package = 2; 
+	char* data_package = (char*)malloc(sizeof(char)*(size_of_package + 1));
+	data_package[0] = size_of_package;
+	data_package[1] = topic;
+	data_package[2] = message;
+
+	return data_package;
 }
