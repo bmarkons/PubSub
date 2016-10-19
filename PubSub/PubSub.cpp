@@ -117,12 +117,11 @@ void free_socket(void * data) {
 	free(*(SOCKET**)data);
 }
 
-bool compare_node_with_topic(void *listNode, void* element2) {
+bool compare_node_with_topic(ListNode* listNode, void* param) {
 
-	ListNode* node = (ListNode*)listNode;
-	char find_topic = *(char*)element2;
+	char find_topic = *(char*)param;
 
-	TopicContent *current_topic_content = (TopicContent*)node->data;
+	TopicContent *current_topic_content = (TopicContent*)listNode->data;
 	char current_topic = current_topic_content->topic;
 
 	if (current_topic == find_topic) {
@@ -131,6 +130,17 @@ bool compare_node_with_topic(void *listNode, void* element2) {
 	else {
 		return false;
 	}
+}
+
+bool sendIterator(ListNode *listNode, void* param) {
+
+	char message = *(char*)param;
+
+	SOCKET socket = *(SOCKET*)listNode->data;
+
+	send(socket, &message, 1, 0);
+
+	return true;
 }
 
 #pragma endregion
@@ -200,9 +210,21 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 }
 
 DWORD WINAPI consume_messages(LPVOID lpParam) {
+	TopicContent *topic_content = (TopicContent*)lpParam;
+	char message;
+	while (true) {
+		
+		bool success = Pop(&topic_content->message_buffer, &message);
+		if (success) {
+			sendToSockets(&topic_content->sockets, message);
+		}
+		Sleep(50);		
+	}
 	return 0;
 }
-
+void sendToSockets(List *sockets, char message) {
+	list_for_each_param(sockets, sendIterator, &message);
+}
 #pragma endregion
 
 #pragma region PUBLISHER
@@ -266,11 +288,31 @@ void waitForMessage(SOCKET * socket, unsigned buffer_size, List* topic_contents)
 }
 
 bool pushMessage(char topic, char message, List* topic_contents) {
-	return false;
+	ListNode* node = (ListNode*)list_find(topic_contents, &topic, compare_node_with_topic);
+
+	if (node == NULL) {
+		return false;
+	}
+
+	TopicContent* topic_content = (TopicContent*)node->data;
+	//PrintBuffer(&topic_content->message_buffer);
+	Push(&topic_content->message_buffer, message);
+	//PrintBuffer(&topic_content->message_buffer);
+
+
+	return true;
 }
 
 void create_topic(List* topic_contents, char topic) {
+	TopicContent new_topic;
+	new_topic.topic = topic;
+	list_new(&new_topic.sockets, sizeof(SOCKET), free_socket);
+	InitializeBuffer(&new_topic.message_buffer, INIT_BUFFER_SIZE);
 
+	ListNode* node = list_append(topic_contents, &new_topic);
+
+	HANDLE consume_message_handle = CreateThread(NULL, 0, &consume_messages, node->data, 0, NULL);
+	// TODO: add handle to HANDLE_LIST
 }
 
 #pragma endregion

@@ -4,7 +4,7 @@
 void list_new(List *list, int elementSize, freeFunction freeFn)
 {
 
-	assert(elementSize > 0);	
+	assert(elementSize > 0);
 	list->logicalLength = 0;
 	list->elementSize = elementSize;
 	list->head = list->tail = NULL;
@@ -53,7 +53,7 @@ void list_prepend(List *list, void *element)
 
 }
 
-void list_append(List *list, void *element)
+ListNode* list_append(List *list, void *element)
 {
 	EnterCriticalSection(&list->cs);
 
@@ -72,6 +72,22 @@ void list_append(List *list, void *element)
 	}
 
 	list->logicalLength++;
+	LeaveCriticalSection(&list->cs);
+	return node;
+}
+
+void list_for_each_param(List *list, paramIterator iterator, void* param)
+{
+	EnterCriticalSection(&list->cs);
+
+	assert(iterator != NULL);
+
+	ListNode *node = list->head;
+	bool result = true;
+	while (node != NULL && result) {
+		result = iterator(node, param);
+		node = node->next;
+	}
 	LeaveCriticalSection(&list->cs);
 }
 
@@ -132,6 +148,7 @@ void* list_find(List *list, void *element, listCompare comparator) {
 	ListNode *node = list->head;
 	while (node != NULL) {
 		if (comparator(node, element)) {
+			LeaveCriticalSection(&list->cs);
 			return node;
 		}
 		node = node->next;
