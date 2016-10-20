@@ -1,7 +1,6 @@
 #include "stdafx.h"
 
 #pragma region SOCKETS
-
 void InitializeWindowsSockets() {
 	WSADATA wsaData;
 	// Initialize windows sockets library for this process
@@ -176,12 +175,10 @@ bool receive(SOCKET* socket, char* recvbuf) {
 	return iResult < 0 ? false : true;
 }
 
-void wait_for_message(SOCKET * socket, List* topic_contents, messageHandler message_handler)
-{
+void wait_for_message(SOCKET * socket, List* topic_contents, messageHandler message_handler) {
 	set_nonblocking_mode(socket);
 	char *recvbuf = (char*)malloc(DEFAULT_BUFLEN);
 
-	printf("\n Waiting for messages...\n");
 	do
 	{
 		bool ready = is_ready_for_receive(socket);
@@ -206,10 +203,10 @@ void send_to_subscriber(SOCKET * socket, char message)
 	char* package = make_data_package(message, &data_size);
 	bool success = send_nonblocking(socket, package, data_size);
 	if (success) {
-		printf("Message sent to subcriber : %d", *socket);
+		printf("--> Message sent to subcriber : %d\n", *socket);
 	}
 	else {
-		printf("Error occured while sending to subscriber...\n");
+		printf("xxx Error occured while sending to subscriber %d.\n", *socket);
 	}
 
 }
@@ -252,7 +249,6 @@ char* make_data_package(char message, int* data_size) {
 	data_package[1] = message;
 	return data_package;
 }
-
 #pragma endregion
 
 #pragma region TOPIC_LIST
@@ -307,6 +303,7 @@ DWORD WINAPI accept_publisher(LPVOID lpParam) {
 		socket = accept(listenSocket, NULL, NULL);
 		if (socket != INVALID_SOCKET)
 		{
+			printf("[Publisher] Connected.\n");
 			acceptedSocket = (SOCKET*)malloc(sizeof(SOCKET));
 			memcpy(acceptedSocket, &socket, sizeof(SOCKET));
 			DWORD listen_publisher_id;
@@ -340,7 +337,7 @@ void unpack_and_push(char* recvbuf, SOCKET* socket, List* topic_contents) {
 	unpack_message(recvbuf, &topic, &message);
 	push_message(topic, message, topic_contents);
 
-	printf("Message pushed on topic %c: [%c]", topic, message);
+	printf("[Publisher] New message on topic %c: [%c]\n", topic, message);
 }
 
 void unpack_message(char* recvbuf, char* topic, char* message) {
@@ -399,12 +396,28 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 		socket = INVALID_SOCKET;
 		socket = accept(listenSocket, NULL, NULL);
 		if (socket != INVALID_SOCKET) {
+			printf("[Subscriber] Connected.\n");
 			acceptedSocket = (SOCKET*)malloc(sizeof(SOCKET));
 			memcpy(acceptedSocket, &socket, sizeof(SOCKET));
 
-			wait_for_message(acceptedSocket, topic_contents, push_socket_on_topic);
+			DWORD listen_subscriber_id;
+			ParamStruct param;
+			param.socket = acceptedSocket;
+			param.topic_contents = topic_contents;
+
+			HANDLE listen_subscriber_handle = CreateThread(NULL, 0, &listen_subscriber, &param, 0, &listen_subscriber_id);
 		}
 	}
+
+	return 0;
+}
+
+DWORD WINAPI listen_subscriber(LPVOID lpParam) {
+	ParamStruct* param = (ParamStruct*)lpParam;
+	SOCKET* socket = param->socket;
+	List* topic_contents = param->topic_contents;
+
+	wait_for_message(socket, topic_contents, push_socket_on_topic);
 
 	return 0;
 }
@@ -416,6 +429,7 @@ DWORD WINAPI consume_messages(LPVOID lpParam) {
 
 		bool success = Pop(&topic_content->message_buffer, &message);
 		if (success) {
+			printf("Sending message [%c] to all subscribers on topic '%c'...\n", message, topic_content->topic);
 			send_to_sockets(&topic_content->sockets, message);
 		}
 		Sleep(SERVER_SLEEP_TIME);
@@ -430,14 +444,14 @@ void push_socket_on_topic(char* recvbuf, SOCKET *socket, List *topic_contents) {
 	char response;
 	if (finded_content == NULL) {
 		response = SUBSCRIBE_FAIL;
-		printf("Subscriber %d fail while trying to subscribe for topic: %s.\n", (int)*socket, recvbuf);
+		printf("[Subscriber] %d failed to subscribe on topic: %s.\n", (int)*socket, recvbuf);
 	}
 	else {
 		TopicContent *topic_content = (TopicContent*)finded_content->data;
 		list_append(&topic_content->sockets, socket);
 
 		response = SUBSCRIBE_SUCCESS;
-		printf("New subscriber %d for topic: %s.\n", (int)*socket, recvbuf);
+		printf("[Subscriber] New subscription on topic: %s.\n", recvbuf);
 	}
 
 	int data_size;

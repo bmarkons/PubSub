@@ -56,6 +56,7 @@ void create_topic(List* topic_contents, char topic);
 
 #pragma region SUBSCRIBER
 DWORD WINAPI accept_subscriber(LPVOID);
+DWORD WINAPI listen_subscriber(LPVOID lpParam);
 DWORD WINAPI consume_messages(LPVOID lpParam);
 void push_socket_on_topic(char* recvbuf, SOCKET *socket, List *topic_contents);
 void send_to_sockets(List *sockets, char message);

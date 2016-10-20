@@ -39,13 +39,8 @@ void disconnect(SOCKET* socket) {
 	printf("Connection closed.\n");
 }
 
-void input_message(char* message) {
-	printf("Input message (one character) :\n");
-	scanf(" %c", message);
-}
-
 void input_topic(char* topic) {
-	printf("Input topic (one character) :\n");
+	printf("Input topic (one character) : ");
 	scanf(" %c", topic);
 }
 
@@ -56,7 +51,7 @@ void subscribe(SOCKET * socket, char topic)
 
 	bool success = send_nonblocking(socket, package, data_size);
 	if (success) {
-		printf("Woow NICE!Now you are trying to subscribing for %c topic!\n", topic);
+		printf("Subscribing on topic '%c'.\n", topic);
 	}
 	else {
 		printf("Error occured while subscribing...\n");
@@ -109,7 +104,7 @@ void waitForMessage(SOCKET * socket, unsigned buffer_size)
 	//set parameter for NonBlocking mode
 	set_nonblocking_mode(socket);
 
-	printf("\n Waiting for messages...\n");
+	printf("Waiting for messages...\n");
 	do
 	{
 		bool ready = is_ready_for_receive(socket);
@@ -125,7 +120,7 @@ void waitForMessage(SOCKET * socket, unsigned buffer_size)
 				break;
 			}
 		}
-	} while (1);
+	} while (true);
 }
 
 void checkConfimation(SOCKET *socket) {
@@ -135,7 +130,6 @@ void checkConfimation(SOCKET *socket) {
 	//set parameter for NonBlocking mode
 	set_nonblocking_mode(socket);
 
-	printf("\n Waiting for confirmation...\n");
 	while (true)
 	{
 		bool ready = is_ready_for_receive(socket);
@@ -144,11 +138,11 @@ void checkConfimation(SOCKET *socket) {
 			success = receive(socket, recvbuf);
 			if (success) {
 				if (recvbuf[0] == SUBSCRIBE_SUCCESS) {
-					printf("Successfuly subscribed!\n");
+					printf("SUCCESS!\n");
 					break;
 				}
 				else {
-					printf("Error while subscribing!\n");
+					printf("FAIL!\n");
 					closesocket(*socket);
 					break;
 				}
