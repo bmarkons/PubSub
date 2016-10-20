@@ -5,6 +5,7 @@
 #define SERVER_SLEEP_TIME 50
 #define DEFAULT_BUFLEN 10
 #define INIT_BUFFER_SIZE 30
+#define HEADER_SIZE 1
 
 typedef struct _topic_content {
 	char topic;
@@ -27,8 +28,9 @@ void start_listening(SOCKET* listenSocket, char* port);
 bool receive(SOCKET* socket, char* recvbuf);
 void wait_for_message(SOCKET * socket, List* topic_contents, messageHandler message_handler);
 void send_to_subscriber(SOCKET * socket, char message);
-bool Send(SOCKET* socket, char *package);
-char* make_data_package(char message);
+bool send_nonblocking(SOCKET* socket, char* package, int data_size);
+bool send_all(SOCKET* socket, char *package, int data_size);
+char* make_data_package(char message, int* data_size);
 bool is_ready_for_send(SOCKET * socket);
 #pragma endregion
 

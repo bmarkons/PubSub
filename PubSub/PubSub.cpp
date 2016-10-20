@@ -169,7 +169,7 @@ bool receive(SOCKET* socket, char* recvbuf) {
 			iResult = recv(*socket, recvbuf + total_received, DEFAULT_BUFLEN, 0);
 			total_received += iResult;
 		}
-		
+
 	} while (total_received < topic_length);
 
 	recvbuf[total_received] = NULL;  //set the end of the string
@@ -202,50 +202,53 @@ void wait_for_message(SOCKET * socket, List* topic_contents, messageHandler mess
 
 void send_to_subscriber(SOCKET * socket, char message)
 {
-	while (true) {
-		//set parameter for NonBlocking mode
-		set_nonblocking_mode(socket);
+	int data_size;
+	char* package = make_data_package(message, &data_size);
+	bool success = send_nonblocking(socket, package, data_size);
+	if (success) {
+		printf("Message sent to subcriber : %d", *socket);
+	}
+	else {
+		printf("Error occured while sending to subscriber...\n");
+	}
 
+}
+
+bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
+	set_nonblocking_mode(socket);
+
+	while (true) {
 		bool ready = is_ready_for_send(socket);
 		bool success;
 
 		if (ready) {
-			char* package = make_data_package(message);
-			success = Send(socket, package);
+			success = send_all(socket, package, data_size);
 			free(package);
-			if (success) {
-				printf("Message sent to subcriber : %d", *socket);
-				break;
-			}
-			else {
-				printf("Error occured while sending to subscriber...\n");
+			if (!success) {
 				closesocket(*socket);
-				break;
 			}
+			return success;
 		}
 	}
 }
 
-bool Send(SOCKET* socket, char *package) {
-	int package_length = 2;
+bool send_all(SOCKET* socket, char *package, int data_size) {
+	int package_size = data_size + HEADER_SIZE;
 	int iResult;
 	int total_sent = 0;
 	do {
-		iResult = send(*socket, package + total_sent, package_length - total_sent, 0);
+		iResult = send(*socket, package + total_sent, package_size - total_sent, 0);
 		total_sent += iResult;
-		if (iResult < 0) {
-			break;
-		}
-	} while (total_sent < package_length);
+	} while (total_sent < package_size);
 
 	return iResult == SOCKET_ERROR ? false : true;
 }
 
-char* make_data_package(char message) {
+char* make_data_package(char message, int* data_size) {
 	//int size_of_package = strlen(topic);
-	int size_of_package = 1;
-	char * data_package = (char*)malloc(sizeof(char)*(size_of_package + 1));
-	data_package[0] = size_of_package;
+	*data_size = 1;
+	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));
+	data_package[0] = *data_size;
 	data_package[1] = message;
 	return data_package;
 }
@@ -437,7 +440,12 @@ void push_socket_on_topic(char* recvbuf, SOCKET *socket, List *topic_contents) {
 		printf("New subscriber %d for topic: %s.\n", (int)*socket, recvbuf);
 	}
 
-	send(*socket, &response, 1, 0);
+	int data_size;
+	char* package = make_data_package(response, &data_size);
+	bool success = send_nonblocking(socket, package, data_size);
+	if (!success) {
+		printf("Error occured while sending subscription confirmation.\n");
+	}
 }
 
 void send_to_sockets(List *sockets, char message) {

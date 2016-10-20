@@ -51,58 +51,53 @@ void input_topic(char* topic) {
 
 void subscribe(SOCKET * socket, char topic)
 {
-	while (true) {
-		//set parameter for NonBlocking mode
-		set_nonblocking_mode(socket);
+	int data_size;
+	char* package = make_data_package(topic, &data_size);
 
+	bool success = send_nonblocking(socket, package, data_size);
+	if (success) {
+		printf("Woow NICE!Now you are trying to subscribing for %c topic!\n", topic);
+	}
+	else {
+		printf("Error occured while subscribing...\n");
+	}
+}
+
+bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
+	set_nonblocking_mode(socket);
+
+	while (true) {
 		bool ready = is_ready_for_send(socket);
 		bool success;
 
 		if (ready) {
-			char* package = make_data_package(topic);
-			success = Send(socket, package);
+			success = send_all(socket, package, data_size);
 			free(package);
-			if (success) {
-				printf("Woow NICE!Now you are trying to subscribing for %c topic!\n", topic);
-				break;
-			}
-			else {
-				printf("Error occured while subscribing...\n");
+			if (!success) {
 				closesocket(*socket);
-				break;
 			}
+			return success;
 		}
 	}
-
-	/*char* package = make_data_package(topic);
-	bool success = Send(socket, package);
-	free(package);
-	if (success) {
-		printf("Woow NICE!Now you are subscribed for %c topic!\n", topic);
-	}
-	else {
-		printf("Error occured while subscribing...\n");
-		closesocket(*socket);
-	}*/
 }
 
-bool Send(SOCKET* socket, char *package) {
-	int package_length = 2;
+bool send_all(SOCKET* socket, char *package, int data_size) {
+	int package_size = data_size + HEADER_SIZE;
 	int iResult;
 	int total_sent = 0;
 	do {
-		iResult = send(*socket, package + total_sent, package_length - total_sent, 0);
+		iResult = send(*socket, package + total_sent, package_size - total_sent, 0);
 		total_sent += iResult;
-	} while (total_sent < package_length);
+	} while (total_sent < package_size);
 
 	return iResult == SOCKET_ERROR ? false : true;
 }
 
-char* make_data_package(char topic) {
+char* make_data_package(char topic, int* data_size) {
 	//int size_of_package = strlen(topic);
-	int size_of_package = 1;
-	char * data_package = (char*)malloc(sizeof(char)*(size_of_package + 1));
-	data_package[0] = size_of_package;
+	*data_size = 1;
+	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));
+	data_package[0] = *data_size;
 	data_package[1] = topic;
 	return data_package;
 }
@@ -165,7 +160,7 @@ void checkConfimation(SOCKET *socket) {
 			}
 		}
 	}
-	
+
 }
 
 void set_nonblocking_mode(SOCKET * socket)
@@ -265,7 +260,9 @@ bool receive(SOCKET* socket, char* recvbuf) {
 			iResult = recv(*socket, recvbuf + total_received, DEFAULT_BUFLEN, 0);
 			total_received += iResult;
 		}
-
+		if (iResult < 0) {
+			break;
+		}
 	} while (total_received < topic_length);
 
 	recvbuf[total_received] = NULL;  //set the end of the string
