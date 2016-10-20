@@ -1,6 +1,7 @@
 #include "stdafx.h"
 
 #pragma region SOCKETS
+
 void InitializeWindowsSockets() {
 	WSADATA wsaData;
 	// Initialize windows sockets library for this process
@@ -157,16 +158,15 @@ bool receive(SOCKET* socket, char* recvbuf) {
 	do {
 		if (firstRecv) {
 			iResult = recv(*socket, recvbuf + total_received, 1, 0);
-			if (iResult == 0) {
-				printf("Message hasn't a header\n");
-				return false;
-			}
 			topic_length = recvbuf[0];
 			firstRecv = false;
 		}
 		else {
 			iResult = recv(*socket, recvbuf + total_received, DEFAULT_BUFLEN, 0);
 			total_received += iResult;
+		}
+		if (iResult < 0) {
+			break;
 		}
 
 	} while (total_received < topic_length);
@@ -175,7 +175,7 @@ bool receive(SOCKET* socket, char* recvbuf) {
 	return iResult < 0 ? false : true;
 }
 
-void wait_for_message(SOCKET * socket, List* topic_contents, messageHandler message_handler) {
+void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_handler) {
 	set_nonblocking_mode(socket);
 	char *recvbuf = (char*)malloc(DEFAULT_BUFLEN);
 
@@ -186,7 +186,7 @@ void wait_for_message(SOCKET * socket, List* topic_contents, messageHandler mess
 		if (ready) {
 			success = receive(socket, recvbuf);
 			if (success) {
-				message_handler(recvbuf, socket, topic_contents);
+				message_handler(recvbuf, socket, wrapper);
 			}
 			else {
 				printf("Error occured while receiving message from socket.\n");
@@ -251,7 +251,7 @@ char* make_data_package(char message, int* data_size) {
 }
 #pragma endregion
 
-#pragma region TOPIC_LIST
+#pragma region LIST_FUNCTIONS
 
 void free_topic_content(void * data) {
 	free(*(TopicContent**)data);
@@ -259,6 +259,10 @@ void free_topic_content(void * data) {
 
 void free_socket(void * data) {
 	free(*(SOCKET**)data);
+}
+
+void free_thread(void * data) {
+	free(*(TThread**)data);
 }
 
 bool compare_node_with_topic(ListNode* listNode, void* param) {
@@ -287,12 +291,32 @@ bool sendIterator(ListNode *listNode, void* param) {
 	return true;
 }
 
+bool printID(void *param) {
+	TThread thread = *(TThread*)param;
+
+	printf(" - %d :", thread.id);
+	DWORD result = WaitForSingleObject(thread.handle, 0);
+	char *msg;
+	if (result == WAIT_OBJECT_0) {
+		// the thread handle is signaled - the thread has terminated
+		msg = "TERMINATED";
+	}
+	else {
+		// the thread handle is not signaled - the thread is still alive
+		msg = "ALIVE";
+	}
+	printf(" %s\n", msg);
+	return true;
+}
+
 #pragma endregion
 
 #pragma region PUBLISHER
 
 DWORD WINAPI accept_publisher(LPVOID lpParam) {
-	List* topic_contents = (List*)lpParam;
+
+	Wrapper* wrapper = (Wrapper*)lpParam;
+
 	SOCKET listenSocket = INVALID_SOCKET;
 	SOCKET* acceptedSocket;
 	start_listening(&listenSocket, LISTEN_PUBLISHER_PORT);
@@ -309,11 +333,13 @@ DWORD WINAPI accept_publisher(LPVOID lpParam) {
 			DWORD listen_publisher_id;
 			ParamStruct param;
 			param.socket = acceptedSocket;
-			param.topic_contents = topic_contents;
+			param.wrapper = wrapper;
+
 			HANDLE listen_publisher_handle = CreateThread(NULL, 0, &listen_publisher, &param, 0, &listen_publisher_id);
 
-			// TODO: put SOCKET and HANDLER in container
-
+			add_to_thread_list( wrapper->thread_list,            //list
+								listen_publisher_handle,        //handle
+								listen_publisher_id);           //handle_id
 		}
 	}
 
@@ -323,19 +349,20 @@ DWORD WINAPI accept_publisher(LPVOID lpParam) {
 DWORD WINAPI listen_publisher(LPVOID lpParam) {
 	ParamStruct* param = (ParamStruct*)lpParam;
 	SOCKET* socket = param->socket;
-	List* topic_contents = param->topic_contents;
 
-	wait_for_message(socket, topic_contents, unpack_and_push);
+	Wrapper* wrapper = param->wrapper;
+
+	wait_for_message(socket, wrapper, unpack_and_push);
 
 	return 0;
 }
 
-void unpack_and_push(char* recvbuf, SOCKET* socket, List* topic_contents) {
+void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper) {
 	char topic;
 	char message;
 
 	unpack_message(recvbuf, &topic, &message);
-	push_message(topic, message, topic_contents);
+	push_message(topic, message, wrapper);
 
 	printf("[Publisher] New message on topic %c: [%c]\n", topic, message);
 }
@@ -345,11 +372,11 @@ void unpack_message(char* recvbuf, char* topic, char* message) {
 	*message = recvbuf[1];
 }
 
-void push_message(char topic, char message, List* topic_contents) {
-	bool success = push_try(topic, message, topic_contents);
+void push_message(char topic, char message, Wrapper* wrapper) {
+	bool success = push_try(topic, message, wrapper->topic_contents);
 	if (!success) {
-		create_topic(topic_contents, topic);
-		push_try(topic, message, topic_contents);
+		create_topic(wrapper, topic);
+		push_try(topic, message, wrapper->topic_contents);
 	}
 }
 
@@ -366,16 +393,20 @@ bool push_try(char topic, char message, List* topic_contents) {
 	return true;
 }
 
-void create_topic(List* topic_contents, char topic) {
+void create_topic(Wrapper* wrapper, char topic) {
 	TopicContent new_topic;
 	new_topic.topic = topic;
 	list_new(&new_topic.sockets, sizeof(SOCKET), free_socket);
 	InitializeBuffer(&new_topic.message_buffer, INIT_BUFFER_SIZE);
 
-	ListNode* node = list_append(topic_contents, &new_topic);
+	ListNode* node = list_append(wrapper->topic_contents, &new_topic);
 
-	HANDLE consume_message_handle = CreateThread(NULL, 0, &consume_messages, node->data, 0, NULL);
-	// TODO: add handle to HANDLE_LIST
+	DWORD consume_thread_id;
+	HANDLE consume_message_handle = CreateThread(NULL, 0, &consume_messages, node->data, 0, &consume_thread_id);
+
+	add_to_thread_list( wrapper->thread_list,            //list
+						consume_message_handle,        //handle
+						consume_thread_id);           //handle_id
 }
 
 #pragma endregion
@@ -383,9 +414,11 @@ void create_topic(List* topic_contents, char topic) {
 #pragma region SUBSCRIBER
 
 DWORD WINAPI accept_subscriber(LPVOID lpParam) {
+
+	Wrapper *wrapper = (Wrapper*)lpParam;
+
 	SOCKET listenSocket = INVALID_SOCKET;
 	SOCKET* acceptedSocket;
-	List *topic_contents = (List*)lpParam;
 
 	start_listening(&listenSocket, LISTEN_SUBSCRIBER_PORT);
 	printf("PubSubEngine is ready to accept subscribers.\n");
@@ -403,9 +436,13 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 			DWORD listen_subscriber_id;
 			ParamStruct param;
 			param.socket = acceptedSocket;
-			param.topic_contents = topic_contents;
+			param.wrapper = wrapper;
 
 			HANDLE listen_subscriber_handle = CreateThread(NULL, 0, &listen_subscriber, &param, 0, &listen_subscriber_id);
+
+			add_to_thread_list( wrapper->thread_list,            //list
+								listen_subscriber_handle,        //handle
+								listen_subscriber_id);           //handle_id
 		}
 	}
 
@@ -415,9 +452,9 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 DWORD WINAPI listen_subscriber(LPVOID lpParam) {
 	ParamStruct* param = (ParamStruct*)lpParam;
 	SOCKET* socket = param->socket;
-	List* topic_contents = param->topic_contents;
+	Wrapper* wrapper = param->wrapper;
 
-	wait_for_message(socket, topic_contents, push_socket_on_topic);
+	wait_for_message(socket, wrapper, push_socket_on_topic);
 
 	return 0;
 }
@@ -437,9 +474,9 @@ DWORD WINAPI consume_messages(LPVOID lpParam) {
 	return 0;
 }
 
-void push_socket_on_topic(char* recvbuf, SOCKET *socket, List *topic_contents) {
+void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper) {
 	char topic = recvbuf[0];
-	ListNode *finded_content = (ListNode*)list_find(topic_contents, &topic, compare_node_with_topic);
+	ListNode *finded_content = (ListNode*)list_find(wrapper->topic_contents, &topic, compare_node_with_topic);
 
 	char response;
 	if (finded_content == NULL) {
@@ -466,4 +503,24 @@ void send_to_sockets(List *sockets, char message) {
 	list_for_each_param(sockets, sendIterator, &message);
 }
 
+#pragma endregion
+
+#pragma region THREAD_COLLECTOR
+DWORD WINAPI thread_collector(LPVOID lpParam) {
+
+	Wrapper *wrapper = (Wrapper*)lpParam;
+
+	//TODO finding TERMINATED thread and close
+	//TODO remove closed thread from list
+
+
+	return 0;
+}
+
+void add_to_thread_list(List* thread_list, HANDLE handle, DWORD handle_id) {
+	TThread thread;
+	thread.handle = handle;
+	thread.id = handle_id;
+	list_append(thread_list, &thread);
+}
 #pragma endregion
