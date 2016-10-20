@@ -1,5 +1,9 @@
 #pragma once
 
+#define SERVER_SLEEP_TIME 50
+#define HEADER_SIZE 1
+
+
 void InitializeWindowsSockets();
 void connectToServer(SOCKET* socket, char* ipv4_address, u_int port);
 void disconnect(SOCKET*);
@@ -7,4 +11,8 @@ void publishing_loop(SOCKET* socket);
 void input_message(char* message);
 void input_topic(char* topic);
 void publish(char message, char topic, SOCKET* socket);
-void make_data_package(char message, char topic, char* data_package);
+char* make_data_package(char message, char topic, int *data_size);
+bool is_ready_for_send(SOCKET * socket);
+void set_nonblocking_mode(SOCKET * socket);
+bool send_nonblocking(SOCKET* socket, char* package, int data_size);
+bool send_all(SOCKET* socket, char *package, int data_size);

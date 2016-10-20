@@ -12,7 +12,7 @@ void InitializeWindowsSockets() {
 	}
 }
 
-void setNonBlockingMode(SOCKET * socket)
+void set_nonblocking_mode(SOCKET * socket)
 {
 	// Set socket to nonblocking mode
 	unsigned long int nonBlockingMode = 1;
@@ -22,11 +22,11 @@ void setNonBlockingMode(SOCKET * socket)
 	{
 		printf("ioctlsocket failed with error: %ld\n", WSAGetLastError());
 		closesocket(*socket);
-		exit(EXIT_FAILURE);
+		//exit(EXIT_FAILURE);
 	}
 }
 
-int ready_for_receive(SOCKET * socket) {
+bool is_ready_for_receive(SOCKET * socket) {
 	// Initialize select parameters
 	FD_SET set;
 	timeval timeVal;
@@ -40,7 +40,52 @@ int ready_for_receive(SOCKET * socket) {
 	timeVal.tv_sec = 0;
 	timeVal.tv_usec = 0;
 
-	return select(0 /* ignored */, &set, NULL, NULL, &timeVal);
+	int iResult = select(0 /* ignored */, &set, NULL, NULL, &timeVal);
+	// lets check if there was an error during select
+	if (iResult == SOCKET_ERROR)
+	{
+		fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
+		return false;
+	}
+	// now, lets check if there are any sockets ready
+	if (iResult == 0)
+	{
+		// there are no ready sockets, sleep for a while and check again
+		Sleep(SERVER_SLEEP_TIME);
+		return false;
+	}
+}
+
+bool is_ready_for_send(SOCKET * socket) {
+	// Initialize select parameters
+	FD_SET set;
+	timeval timeVal;
+
+	FD_ZERO(&set);
+	// Add socket we will wait to read from
+	FD_SET(*socket, &set);
+
+	// Set timeouts to zero since we want select to return
+	// instantaneously
+	timeVal.tv_sec = 0;
+	timeVal.tv_usec = 0;
+
+	int iResult = select(0 /* ignored */, NULL, &set, NULL, &timeVal); //3rd parametar is set because need select for send
+																	   // lets check if there was an error during select
+	if (iResult == SOCKET_ERROR)
+	{
+		fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
+		return false;
+	}
+	// now, lets check if there are any sockets ready
+	if (iResult == 0)
+	{
+		// there are no ready sockets, sleep for a while and check again
+		Sleep(SERVER_SLEEP_TIME);
+		return false;
+	}
+
+	return true;
 }
 
 void start_listening(SOCKET* listenSocket, char* port) {
@@ -105,6 +150,109 @@ void start_listening(SOCKET* listenSocket, char* port) {
 
 }
 
+bool receive(SOCKET* socket, char* recvbuf) {
+	int topic_length = 0;
+	int iResult;
+	int total_received = 0;
+	bool firstRecv = true;
+	do {
+		if (firstRecv) {
+			iResult = recv(*socket, recvbuf + total_received, 1, 0);
+			if (iResult == 0) {
+				printf("Message hasn't a header\n");
+				return false;
+			}
+			topic_length = recvbuf[0];
+			firstRecv = false;
+		}
+		else {
+			iResult = recv(*socket, recvbuf + total_received, DEFAULT_BUFLEN, 0);
+			total_received += iResult;
+		}
+
+	} while (total_received < topic_length);
+
+	recvbuf[total_received] = NULL;  //set the end of the string
+	return iResult < 0 ? false : true;
+}
+
+void wait_for_message(SOCKET * socket, List* topic_contents, messageHandler message_handler)
+{
+	set_nonblocking_mode(socket);
+	char *recvbuf = (char*)malloc(DEFAULT_BUFLEN);
+
+	printf("\n Waiting for messages...\n");
+	do
+	{
+		bool ready = is_ready_for_receive(socket);
+		bool success;
+		if (ready) {
+			success = receive(socket, recvbuf);
+			if (success) {
+				message_handler(recvbuf, socket, topic_contents);
+			}
+			else {
+				printf("Error occured while receiving message from socket.\n");
+				closesocket(*socket);
+				break;
+			}
+		}
+	} while (1);
+}
+
+void send_to_subscriber(SOCKET * socket, char message)
+{
+	int data_size;
+	char* package = make_data_package(message, &data_size);
+	bool success = send_nonblocking(socket, package, data_size);
+	if (success) {
+		printf("Message sent to subcriber : %d", *socket);
+	}
+	else {
+		printf("Error occured while sending to subscriber...\n");
+	}
+
+}
+
+bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
+	set_nonblocking_mode(socket);
+
+	while (true) {
+		bool ready = is_ready_for_send(socket);
+		bool success;
+
+		if (ready) {
+			success = send_all(socket, package, data_size);
+			free(package);
+			if (!success) {
+				closesocket(*socket);
+			}
+			return success;
+		}
+	}
+}
+
+bool send_all(SOCKET* socket, char *package, int data_size) {
+	int package_size = data_size + HEADER_SIZE;
+	int iResult;
+	int total_sent = 0;
+	do {
+		iResult = send(*socket, package + total_sent, package_size - total_sent, 0);
+		total_sent += iResult;
+	} while (total_sent < package_size);
+
+	return iResult == SOCKET_ERROR ? false : true;
+}
+
+char* make_data_package(char message, int* data_size) {
+	//int size_of_package = strlen(topic);
+	*data_size = 1;
+	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));
+	data_package[0] = *data_size;
+	data_package[1] = message;
+	return data_package;
+}
+
 #pragma endregion
 
 #pragma region TOPIC_LIST
@@ -138,14 +286,14 @@ bool sendIterator(ListNode *listNode, void* param) {
 
 	SOCKET socket = *(SOCKET*)listNode->data;
 
-	send(socket, &message, 1, 0);
+	send_to_subscriber(&socket, message);
 
 	return true;
 }
 
 #pragma endregion
 
-#pragma region THREAD_FUNCTIONS
+#pragma region PUBLISHER
 
 DWORD WINAPI accept_publisher(LPVOID lpParam) {
 	List* topic_contents = (List*)lpParam;
@@ -179,115 +327,36 @@ DWORD WINAPI listen_publisher(LPVOID lpParam) {
 	ParamStruct* param = (ParamStruct*)lpParam;
 	SOCKET* socket = param->socket;
 	List* topic_contents = param->topic_contents;
-	waitForMessage(socket, DEFAULT_BUFLEN, topic_contents);
-	return 0;
-}
 
-DWORD WINAPI accept_subscriber(LPVOID lpParam) {
-	SOCKET listenSocket = INVALID_SOCKET;
-	SOCKET* acceptedSocket;
-	List *topic_contents = (List*)lpParam;
-
-	start_listening(&listenSocket, LISTEN_SUBSCRIBER_PORT);
-	printf("PubSubEngine is ready to accept subscribers.\n");
-
-	SOCKET socket;
-
-	while (true) {
-		socket = INVALID_SOCKET;
-		socket = accept(listenSocket, NULL, NULL);
-		if (socket != INVALID_SOCKET) {
-
-			acceptedSocket = (SOCKET*)malloc(sizeof(SOCKET));
-			memcpy(acceptedSocket, &socket, sizeof(SOCKET));
-
-			bool success = receiveTopic(acceptedSocket, 2, topic_contents);
-
-		}
-	}
+	wait_for_message(socket, topic_contents, unpack_and_push);
 
 	return 0;
 }
 
-DWORD WINAPI consume_messages(LPVOID lpParam) {
-	TopicContent *topic_content = (TopicContent*)lpParam;
+void unpack_and_push(char* recvbuf, SOCKET* socket, List* topic_contents) {
+	char topic;
 	char message;
-	while (true) {
-		
-		bool success = Pop(&topic_content->message_buffer, &message);
-		if (success) {
-			sendToSockets(&topic_content->sockets, message);
-		}
-		Sleep(50);		
+
+	unpack_message(recvbuf, &topic, &message);
+	push_message(topic, message, topic_contents);
+
+	printf("Message pushed on topic %c: [%c]", topic, message);
+}
+
+void unpack_message(char* recvbuf, char* topic, char* message) {
+	*topic = recvbuf[0];
+	*message = recvbuf[1];
+}
+
+void push_message(char topic, char message, List* topic_contents) {
+	bool success = push_try(topic, message, topic_contents);
+	if (!success) {
+		create_topic(topic_contents, topic);
+		push_try(topic, message, topic_contents);
 	}
-	return 0;
-}
-void sendToSockets(List *sockets, char message) {
-	list_for_each_param(sockets, sendIterator, &message);
-}
-#pragma endregion
-
-#pragma region PUBLISHER
-
-void waitForMessage(SOCKET * socket, unsigned buffer_size, List* topic_contents)
-{
-	int iResult;
-	char *recvbuf = (char*)malloc(buffer_size);
-	//set parameter for NonBlocking mode
-	setNonBlockingMode(socket);
-
-	printf("\n Waiting for messages...\n");
-	do
-	{
-		iResult = ready_for_receive(socket);
-
-		// lets check if there was an error during select
-		if (iResult == SOCKET_ERROR)
-		{
-			fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
-			continue;
-		}
-		// now, lets check if there are any sockets ready
-		if (iResult == 0)
-		{
-			// there are no ready sockets, sleep for a while and check again
-			Sleep(SERVER_SLEEP_TIME);
-			continue;
-		}
-
-		// Receive data until the client shuts down the connection
-		iResult = recv(*socket, recvbuf, buffer_size, 0);
-		if (iResult > 0)
-		{
-			char topic = recvbuf[0];
-			char message = recvbuf[1];
-			bool success = pushMessage(topic, message, topic_contents);
-			if (!success) {
-				create_topic(topic_contents, topic);
-				pushMessage(topic, message, topic_contents);
-			}
-			printf("Message received on topic %c: [%c]", topic, message);
-		}
-		else if (iResult == 0)
-		{
-			// connection was closed gracefully
-			printf("Connection with client closed.\n");
-			closesocket(*socket);
-			exit(EXIT_FAILURE);
-		}
-		else
-		{
-			// there was an error during recv
-			printf("recv failed with error: %d\n", WSAGetLastError());
-			closesocket(*socket);
-			exit(EXIT_FAILURE);
-		}
-		// here is where server shutdown loguc could be placed
-
-	} while (1);
 }
 
-bool pushMessage(char topic, char message, List* topic_contents) {
+bool push_try(char topic, char message, List* topic_contents) {
 	ListNode* node = (ListNode*)list_find(topic_contents, &topic, compare_node_with_topic);
 
 	if (node == NULL) {
@@ -295,10 +364,7 @@ bool pushMessage(char topic, char message, List* topic_contents) {
 	}
 
 	TopicContent* topic_content = (TopicContent*)node->data;
-	//PrintBuffer(&topic_content->message_buffer);
 	Push(&topic_content->message_buffer, message);
-	//PrintBuffer(&topic_content->message_buffer);
-
 
 	return true;
 }
@@ -319,89 +385,71 @@ void create_topic(List* topic_contents, char topic) {
 
 #pragma region SUBSCRIBER
 
-bool receiveTopic(SOCKET *socket, unsigned buffer_size, List *topic_contents) {
-	int iResult;
-	char *recvbuf = (char*)malloc(buffer_size);
-	//set parameter for NonBlocking mode
-	setNonBlockingMode(socket);
+DWORD WINAPI accept_subscriber(LPVOID lpParam) {
+	SOCKET listenSocket = INVALID_SOCKET;
+	SOCKET* acceptedSocket;
+	List *topic_contents = (List*)lpParam;
 
-	printf("\n Waiting for messages...\n");
-	do
-	{
-		iResult = ready_for_receive(socket);
+	start_listening(&listenSocket, LISTEN_SUBSCRIBER_PORT);
+	printf("PubSubEngine is ready to accept subscribers.\n");
 
-		// lets check if there was an error during select
-		if (iResult == SOCKET_ERROR)
-		{
-			fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
-			continue;
+	SOCKET socket;
+
+	while (true) {
+		socket = INVALID_SOCKET;
+		socket = accept(listenSocket, NULL, NULL);
+		if (socket != INVALID_SOCKET) {
+			acceptedSocket = (SOCKET*)malloc(sizeof(SOCKET));
+			memcpy(acceptedSocket, &socket, sizeof(SOCKET));
+
+			wait_for_message(acceptedSocket, topic_contents, push_socket_on_topic);
 		}
-		// now, lets check if there are any sockets ready
-		if (iResult == 0)
-		{
-			// there are no ready sockets, sleep for a while and check again
-			Sleep(SERVER_SLEEP_TIME);
-			continue;
-		}
-
-		// Receive data until the client shuts down the connection
-		iResult = recv(*socket, recvbuf, buffer_size, 0);
-		if (iResult > 0)
-		{
-			recvbuf[iResult] = NULL;
-
-			bool success = push_socket_on_topic(topic_contents, socket, recvbuf[0]);
-
-			//TODO if TRUE -> send OK, else FAIL
-			char c;
-			c = success ? SUBSCRIBE_SUCCESS : SUBSCRIBE_FAIL;
-			//confirmation for subscriber
-			if (success)
-				printf("New subscriber %d for topic: %s.\n", (int)*socket, recvbuf);
-			else {
-				printf("Subscriber %d fail while trying to subscribe for topic: %s.\n", (int)*socket, recvbuf);
-			}
-			send(*socket, &c, 1, 0);
-
-			return true;
-		}
-		else if (iResult == 0)
-		{
-			// connection was closed gracefully
-			printf("Connection with client closed.\n");
-			closesocket(*socket);
-			//exit(EXIT_FAILURE);
-			return false;
-		}
-		else
-		{
-			// there was an error during recv
-			printf("recv failed with error: %d\n", WSAGetLastError());
-			closesocket(*socket);
-			//exit(EXIT_FAILURE);
-			return false;
-		}
-		// here is where server shutdown loguc could be placed
-
-	} while (1);
-}
-
-bool push_socket_on_topic(List *topic_contents, SOCKET *socket, char topic) {
-
-	//return node from list where is comparator return true
-	ListNode *finded_content = (ListNode*)list_find(topic_contents, &topic, compare_node_with_topic);
-
-	if (finded_content == NULL) {
-		return false;
 	}
 
-	//extract data from finded content
-	TopicContent *topic_content = (TopicContent*)finded_content->data;
+	return 0;
+}
 
+DWORD WINAPI consume_messages(LPVOID lpParam) {
+	TopicContent *topic_content = (TopicContent*)lpParam;
+	char message;
+	while (true) {
 
-	list_append(&topic_content->sockets, socket);
+		bool success = Pop(&topic_content->message_buffer, &message);
+		if (success) {
+			send_to_sockets(&topic_content->sockets, message);
+		}
+		Sleep(SERVER_SLEEP_TIME);
+	}
+	return 0;
+}
 
-	return true;
+void push_socket_on_topic(char* recvbuf, SOCKET *socket, List *topic_contents) {
+	char topic = recvbuf[0];
+	ListNode *finded_content = (ListNode*)list_find(topic_contents, &topic, compare_node_with_topic);
+
+	char response;
+	if (finded_content == NULL) {
+		response = SUBSCRIBE_FAIL;
+		printf("Subscriber %d fail while trying to subscribe for topic: %s.\n", (int)*socket, recvbuf);
+	}
+	else {
+		TopicContent *topic_content = (TopicContent*)finded_content->data;
+		list_append(&topic_content->sockets, socket);
+
+		response = SUBSCRIBE_SUCCESS;
+		printf("New subscriber %d for topic: %s.\n", (int)*socket, recvbuf);
+	}
+
+	int data_size;
+	char* package = make_data_package(response, &data_size);
+	bool success = send_nonblocking(socket, package, data_size);
+	if (!success) {
+		printf("Error occured while sending subscription confirmation.\n");
+	}
+}
+
+void send_to_sockets(List *sockets, char message) {
+	list_for_each_param(sockets, sendIterator, &message);
 }
 
 #pragma endregion
