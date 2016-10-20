@@ -71,18 +71,99 @@ void input_topic(char* topic) {
 }
 
 void publish(char message, char topic, SOCKET* socket) {
-	char data_package[2];
-	make_data_package(message, topic, data_package);
-	int iResult = send(*socket, data_package, 2, 0);
-	if (iResult == SOCKET_ERROR) {
-		printf("Error occured while publishing...\n");
+
+	int data_size;
+	char* data_package = make_data_package(message, topic, &data_size);
+
+	bool success = send_nonblocking(socket, data_package, data_size);
+	if (success) {
+		printf("Awesome! Message '%c' published on topic '%c'!\n", message, topic);
 	}
 	else {
-		printf("Awesome! Message '%c' published on topic '%c'!\n", message, topic);
+		printf("Error occured while publishing...\n");
 	}
 }
 
-void make_data_package(char message, char topic, char* data_package) {
-	data_package[0] = topic;
-	data_package[1] = message;
+char* make_data_package(char message, char topic, int *data_size) {
+	*data_size = 2;
+	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));
+	data_package[0] = *data_size;
+	data_package[1] = topic;
+	data_package[2] = message;
+
+	return data_package;
+}
+
+bool is_ready_for_send(SOCKET * socket) {
+	// Initialize select parameters
+	FD_SET set;
+	timeval timeVal;
+
+	FD_ZERO(&set);
+	// Add socket we will wait to read from
+	FD_SET(*socket, &set);
+
+	// Set timeouts to zero since we want select to return
+	// instantaneously
+	timeVal.tv_sec = 0;
+	timeVal.tv_usec = 0;
+
+	int iResult = select(0 /* ignored */, NULL, &set, NULL, &timeVal); //3rd parametar is set because need select for send
+																	   // lets check if there was an error during select
+	if (iResult == SOCKET_ERROR)
+	{
+		fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
+		return false;
+	}
+	// now, lets check if there are any sockets ready
+	if (iResult == 0)
+	{
+		// there are no ready sockets, sleep for a while and check again
+		Sleep(SERVER_SLEEP_TIME);
+		return false;
+	}
+
+	return true;
+}
+
+void set_nonblocking_mode(SOCKET * socket)
+{
+	// Set socket to nonblocking mode
+	unsigned long int nonBlockingMode = 1;
+	int iResult = ioctlsocket(*socket, FIONBIO, &nonBlockingMode);
+
+	if (iResult == SOCKET_ERROR)
+	{
+		printf("ioctlsocket failed with error: %ld\n", WSAGetLastError());
+		closesocket(*socket);
+		//exit(EXIT_FAILURE);
+	}
+}
+
+bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
+	set_nonblocking_mode(socket);
+
+	while (true) {
+		bool success;
+		if (is_ready_for_send(socket)) {
+			success = send_all(socket, package, data_size);
+			free(package);
+			if (!success) {
+				closesocket(*socket);
+			}
+			return success;
+		}
+	}
+}
+
+bool send_all(SOCKET* socket, char *package, int data_size) {
+	int package_size = data_size + HEADER_SIZE;
+	int iResult;
+	int total_sent = 0;
+	do {
+		iResult = send(*socket, package + total_sent, package_size - total_sent, 0);
+		total_sent += iResult;
+	} while (total_sent < package_size);
+
+	return iResult == SOCKET_ERROR ? false : true;
 }
