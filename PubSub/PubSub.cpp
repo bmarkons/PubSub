@@ -337,9 +337,9 @@ DWORD WINAPI accept_publisher(LPVOID lpParam) {
 
 			HANDLE listen_publisher_handle = CreateThread(NULL, 0, &listen_publisher, &param, 0, &listen_publisher_id);
 
-			add_to_thread_list( wrapper->thread_list,            //list
-								listen_publisher_handle,        //handle
-								listen_publisher_id);           //handle_id
+			add_to_thread_list(wrapper->thread_list,            //list
+				listen_publisher_handle,        //handle
+				listen_publisher_id);           //handle_id
 		}
 	}
 
@@ -393,20 +393,26 @@ bool push_try(char topic, char message, List* topic_contents) {
 	return true;
 }
 
-void create_topic(Wrapper* wrapper, char topic) {
-	TopicContent new_topic;
-	new_topic.topic = topic;
-	list_new(&new_topic.sockets, sizeof(SOCKET), free_socket);
-	InitializeBuffer(&new_topic.message_buffer, INIT_BUFFER_SIZE);
-
+ListNode* create_topic(Wrapper* wrapper, char topic) {
+	TopicContent new_topic = initializeTopic(topic);
 	ListNode* node = list_append(wrapper->topic_contents, &new_topic);
 
 	DWORD consume_thread_id;
 	HANDLE consume_message_handle = CreateThread(NULL, 0, &consume_messages, node->data, 0, &consume_thread_id);
 
-	add_to_thread_list( wrapper->thread_list,            //list
-						consume_message_handle,        //handle
-						consume_thread_id);           //handle_id
+	add_to_thread_list(wrapper->thread_list,            //list
+		consume_message_handle,        //handle
+		consume_thread_id);           //handle_id
+
+	return node;
+}
+
+TopicContent initializeTopic(char topic) {
+	TopicContent new_topic;
+	new_topic.topic = topic;
+	list_new(&new_topic.sockets, sizeof(SOCKET), free_socket);
+	InitializeBuffer(&new_topic.message_buffer, INIT_BUFFER_SIZE);
+	return new_topic;
 }
 
 #pragma endregion
@@ -440,9 +446,9 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 
 			HANDLE listen_subscriber_handle = CreateThread(NULL, 0, &listen_subscriber, &param, 0, &listen_subscriber_id);
 
-			add_to_thread_list( wrapper->thread_list,            //list
-								listen_subscriber_handle,        //handle
-								listen_subscriber_id);           //handle_id
+			add_to_thread_list(wrapper->thread_list,            //list
+				listen_subscriber_handle,        //handle
+				listen_subscriber_id);           //handle_id
 		}
 	}
 
@@ -478,21 +484,17 @@ void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper) {
 	char topic = recvbuf[0];
 	ListNode *finded_content = (ListNode*)list_find(wrapper->topic_contents, &topic, compare_node_with_topic);
 
-	char response;
 	if (finded_content == NULL) {
-		response = SUBSCRIBE_FAIL;
-		printf("[Subscriber] %d failed to subscribe on topic: %s.\n", (int)*socket, recvbuf);
+		finded_content = create_topic(wrapper, topic);
 	}
-	else {
-		TopicContent *topic_content = (TopicContent*)finded_content->data;
-		list_append(&topic_content->sockets, socket);
 
-		response = SUBSCRIBE_SUCCESS;
-		printf("[Subscriber] New subscription on topic: %s.\n", recvbuf);
-	}
+	TopicContent *topic_content = (TopicContent*)finded_content->data;
+	list_append(&topic_content->sockets, socket);
+
+	printf("[Subscriber] New subscription on topic: %s.\n", recvbuf);
 
 	int data_size;
-	char* package = make_data_package(response, &data_size);
+	char* package = make_data_package(SUBSCRIBE_SUCCESS, &data_size);
 	bool success = send_nonblocking(socket, package, data_size);
 	if (!success) {
 		printf("Error occured while sending subscription confirmation.\n");
