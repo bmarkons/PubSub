@@ -73,34 +73,31 @@ void input_topic(char* topic) {
 
 void publish(char *message, char *topic, SOCKET* socket) {
 
-	int data_size;
-	char* data_package = make_data_package(message, topic, &data_size);
+	int package_size;
+	char* package = make_package(message, topic, &package_size);
 
-	bool success = send_nonblocking(socket, data_package, data_size);
+	bool success = send_nonblocking(socket, package, package_size);
 	if (success) {
-		printf("Awesome! Message '%c' published on topic '%c'!\n", message, topic);
+		printf("Awesome! Message '%s' published on topic '%s'!\n", message, topic);
 	}
 	else {
 		printf("Error occured while publishing...\n");
 	}
 }
 
-char* make_data_package(char *message, char *topic, int *data_size) {
+char* make_package(char *message, char *topic, int *package_size) {
 
 	int topic_size = strlen(topic);
 	int message_size = strlen(message);
+	*package_size = 3 + topic_size + message_size;
+	char* data_package = (char*)malloc((*package_size) * sizeof(char));
 
-	*data_size = topic_size + message_size + 2; //+2 because subheader about message and topic
-	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));//+1 because first header
-	//header
-	data_package[0] = *data_size;
-	//subheader
-	data_package[1] = topic_size;
-	data_package[2] = message_size;
+	data_package[0] = (*package_size) - 1;	// size of the rest of package
+	data_package[1] = topic_size;			// size of topic
+	data_package[2] = message_size;			// size of message
 
 	memcpy(data_package + 3, topic, topic_size);
 	memcpy(data_package + 3 + topic_size, message, message_size);
-
 
 	return data_package;
 }
@@ -151,13 +148,13 @@ void set_nonblocking_mode(SOCKET * socket)
 	}
 }
 
-bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
+bool send_nonblocking(SOCKET* socket, char* package, int package_size) {
 	set_nonblocking_mode(socket);
 
 	while (true) {
 		bool success;
 		if (is_ready_for_send(socket)) {
-			success = send_all(socket, package, data_size);
+			success = send_all(socket, package, package_size);
 			free(package);
 			if (!success) {
 				closesocket(*socket);
@@ -167,8 +164,7 @@ bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
 	}
 }
 
-bool send_all(SOCKET* socket, char *package, int data_size) {
-	int package_size = data_size + HEADER_SIZE;
+bool send_all(SOCKET* socket, char *package, int package_size) {
 	int iResult;
 	int total_sent = 0;
 	do {

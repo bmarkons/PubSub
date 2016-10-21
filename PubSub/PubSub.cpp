@@ -274,7 +274,7 @@ bool compare_node_with_topic(ListNode* listNode, void* param) {
 	TopicContent *current_topic_content = (TopicContent*)listNode->data;
 	TString current_topic = current_topic_content->topic;
 
-	if (is_equal_string(current_topic,find_topic)) {
+	if (is_equal_string(current_topic, find_topic)) {
 		return true;
 	}
 	else {
@@ -397,7 +397,7 @@ void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper) {
 	TString topic;
 	TString message;
 
-	unpack_message(recvbuf, &topic, &message); 
+	unpack_message(recvbuf, &topic, &message);
 	push_message(topic, message, wrapper);
 
 	printf("[Publisher] New message on topic %s: [%s]\n", topic.text, message.text);
@@ -522,7 +522,7 @@ void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper) {
 	TopicContent *topic_content = (TopicContent*)finded_content->data;
 	list_append(&topic_content->sockets, socket);
 
-	printf("[Subscriber] New subscription on topic: %s.\n", recvbuf);
+	printf("[Subscriber] New subscription on topic: %s.\n", topic.text);
 
 	int data_size;
 	TString succes_message;
