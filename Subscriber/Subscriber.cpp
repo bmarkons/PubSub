@@ -97,7 +97,7 @@ char* make_data_package(char topic, int* data_size) {
 	return data_package;
 }
 
-void waitForMessage(SOCKET * socket, unsigned buffer_size)
+void wait_for_message(SOCKET * socket, unsigned buffer_size)
 {
 	int iResult;
 	char *recvbuf = (char*)malloc(buffer_size);
@@ -261,4 +261,22 @@ bool receive(SOCKET* socket, char* recvbuf) {
 
 	recvbuf[total_received] = NULL;  //set the end of the string
 	return iResult < 0 ? false : true;
+}
+
+void subscribing(SOCKET* connectSocket) {
+	char command;
+	do {
+		system("cls");
+		char topic;
+		input_topic(&topic);
+
+		//subsribing for specific topic
+		subscribe(connectSocket, topic);
+
+		//check if server returns a message that everything is ok
+		checkConfimation(connectSocket);
+
+		printf("Continue with subscribing on topic? [y/n]");
+		scanf(" %c", &command);
+	} while (command != 'n');
 }
