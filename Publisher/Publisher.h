@@ -15,7 +15,7 @@ void publishing_loop(SOCKET* socket);
 void input_message(char* message);
 void input_topic(char* topic);
 void publish(char *message, char *topic, SOCKET* socket);
-char* make_data_package(char *message, char *topic, int *data_size);
+char* make_package(char *message, char *topic, int *data_size);
 bool is_ready_for_send(SOCKET * socket);
 void set_nonblocking_mode(SOCKET * socket);
 bool send_nonblocking(SOCKET* socket, char* package, int data_size);

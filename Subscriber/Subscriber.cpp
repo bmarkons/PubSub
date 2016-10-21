@@ -91,7 +91,7 @@ bool send_all(SOCKET* socket, char *package, int data_size) {
 char* make_data_package(char *topic, int* data_size) {
 	//int size_of_package = strlen(topic);
 
-	
+
 	int topic_size = strlen(topic);
 	*data_size = topic_size + 1;
 	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));
@@ -111,12 +111,11 @@ void wait_for_message(SOCKET * socket, unsigned buffer_size)
 	printf("Waiting for messages...\n");
 	do
 	{
-		bool ready = is_ready_for_receive(socket);
 		bool success;
-		if (ready) {
+		if (is_ready_for_receive(socket)) {
 			success = receive(socket, recvbuf);
 			if (success) {
-				printf("Message received from client: %s.\n", recvbuf);
+				printf("Message received from client: %s.\n", recvbuf + 1);
 			}
 			else {
 				printf("Error occured while receiving message from socket.\n");
@@ -128,7 +127,6 @@ void wait_for_message(SOCKET * socket, unsigned buffer_size)
 }
 
 void checkConfimation(SOCKET *socket) {
-
 	int iResult;
 	char *recvbuf = (char*)malloc(1);
 	//set parameter for NonBlocking mode
@@ -136,12 +134,11 @@ void checkConfimation(SOCKET *socket) {
 
 	while (true)
 	{
-		bool ready = is_ready_for_receive(socket);
 		bool success;
-		if (ready) {
+		if (is_ready_for_receive(socket)) {
 			success = receive(socket, recvbuf);
 			if (success) {
-				if (recvbuf[0] == SUBSCRIBE_SUCCESS) {
+				if (recvbuf[1] == SUBSCRIBE_SUCCESS) {
 					printf("SUCCESS!\n");
 					break;
 				}
@@ -247,10 +244,6 @@ bool receive(SOCKET* socket, char* recvbuf) {
 	do {
 		if (firstRecv) {
 			iResult = recv(*socket, recvbuf, 1, 0);
-			if (iResult == 0) {
-				printf("Message hasn't a header\n");
-				return false;
-			}
 			topic_length = recvbuf[0];
 			firstRecv = false;
 		}
