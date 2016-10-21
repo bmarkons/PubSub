@@ -2,10 +2,10 @@
 
 #define MIN_BUFFER_SIZE 10
 #define MAX_BUFFER_SIZE 10240
-#define TYPE char
+#define TYPE TString
 
 typedef struct _tbuffer{
-	char *buffer;
+	TYPE *buffer;
 	int pushldx;
 	int popldx;
 	int count;

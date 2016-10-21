@@ -66,10 +66,10 @@ void PrintBuffer(TBuffer *buffer) {
 	printf(" -Buffer SIZE: %d\n", buffer->bufferSize);
 	printf("[");
 	for (int i = 0; i < buffer->bufferSize; i++) {
-		if (i % 10 == 0) {
+		if (i % 5 == 0) {
 			printf("\n");
 		}
-		printf(" %c ", buffer->buffer[i]);
+		printf(" %s ", buffer->buffer[i].text);
 	}
 	printf("]\n");
 	LeaveCriticalSection(&buffer->cs);
@@ -79,7 +79,7 @@ void PrintBuffer(TBuffer *buffer) {
 void ExpandBuffer(TBuffer * circBuffer)
 {
 	int newBufferSize = circBuffer->bufferSize * 2;
-	char *newBuffer = (char*)calloc(newBufferSize, sizeof(TYPE));
+	TYPE *newBuffer = (TYPE*)calloc(newBufferSize, sizeof(TYPE));
 	//InitializeBuffer(&retBuffer, oldBuffer->bufferSize * 2);//prosiruje se duplo
 
 	int deltaMem = circBuffer->bufferSize - circBuffer->pushldx; // razlika izmedju push i buffer size

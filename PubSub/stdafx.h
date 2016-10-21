@@ -12,6 +12,11 @@
 #include <conio.h>
 #include <assert.h>
 
+typedef struct _string {
+	int length;
+	char* text;
+}TString;
+
 #include "list.h"
 #include "buffer.h"
 #include "PubSub.h"

@@ -141,7 +141,7 @@ void checkConfimation(SOCKET *socket) {
 		if (ready) {
 			success = receive(socket, recvbuf);
 			if (success) {
-				if (recvbuf[0] == SUBSCRIBE_SUCCESS) {
+				if (recvbuf[1] == SUBSCRIBE_SUCCESS) {
 					printf("SUCCESS!\n");
 					break;
 				}
@@ -247,10 +247,6 @@ bool receive(SOCKET* socket, char* recvbuf) {
 	do {
 		if (firstRecv) {
 			iResult = recv(*socket, recvbuf, 1, 0);
-			if (iResult == 0) {
-				printf("Message hasn't a header\n");
-				return false;
-			}
 			topic_length = recvbuf[0];
 			firstRecv = false;
 		}
