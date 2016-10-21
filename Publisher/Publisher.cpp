@@ -51,9 +51,10 @@ void publishing_loop(SOCKET* socket) {
 			exit(EXIT_SUCCESS);
 		}
 
-		char message, topic;
-		input_message(&message);
-		input_topic(&topic);
+		char message[MAX_INPUT_SIZE];
+		char topic[MAX_INPUT_SIZE];
+		input_message(message);
+		input_topic(topic);
 		system("cls");
 
 		publish(message, topic, socket);
@@ -62,15 +63,15 @@ void publishing_loop(SOCKET* socket) {
 
 void input_message(char* message) {
 	printf("Input message (one character) :\n");
-	scanf(" %c", message);
+	scanf(" %s", message);
 }
 
 void input_topic(char* topic) {
 	printf("Input topic (one character) :\n");
-	scanf(" %c", topic);
+	scanf(" %s", topic);
 }
 
-void publish(char message, char topic, SOCKET* socket) {
+void publish(char *message, char *topic, SOCKET* socket) {
 
 	int data_size;
 	char* data_package = make_data_package(message, topic, &data_size);
@@ -84,12 +85,22 @@ void publish(char message, char topic, SOCKET* socket) {
 	}
 }
 
-char* make_data_package(char message, char topic, int *data_size) {
-	*data_size = 2;
-	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));
+char* make_data_package(char *message, char *topic, int *data_size) {
+
+	int topic_size = strlen(topic);
+	int message_size = strlen(message);
+
+	*data_size = topic_size + message_size + 2; //+2 because subheader about message and topic
+	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));//+1 because first header
+	//header
 	data_package[0] = *data_size;
-	data_package[1] = topic;
-	data_package[2] = message;
+	//subheader
+	data_package[1] = topic_size;
+	data_package[2] = message_size;
+
+	memcpy(data_package + 3, topic, topic_size);
+	memcpy(data_package + 3 + topic_size, message, message_size);
+
 
 	return data_package;
 }

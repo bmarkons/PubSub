@@ -7,6 +7,11 @@
 #define INIT_BUFFER_SIZE 30
 #define HEADER_SIZE 1
 
+typedef struct _string {
+	int length;
+	char* text;
+}TString;
+
 typedef struct _topic_content {
 	char topic;
 	List sockets;
@@ -61,8 +66,8 @@ TopicContent initializeTopic(char topic);
 DWORD WINAPI accept_publisher(LPVOID lpParam);
 DWORD WINAPI listen_publisher(LPVOID lpParam);
 void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper);
-void unpack_message(char* recvbuf, char* topic, char* message);
-void push_message(char topic, char message, Wrapper* wrapper);
+void unpack_message(char* recvbuf, TString* topic, TString* message);
+void push_message(TString *topic, TString *message, Wrapper* wrapper);
 bool push_try(char topic, char message, List* topic_contents);
 #pragma endregion
 
@@ -72,6 +77,7 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam);
 DWORD WINAPI listen_subscriber(LPVOID lpParam);
 DWORD WINAPI consume_messages(LPVOID lpParam);
 void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper);
+TString unpack_topic(char* recvbuf);
 void send_to_sockets(List *sockets, char message);
 #pragma endregion
 

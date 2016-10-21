@@ -195,6 +195,7 @@ void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_
 			}
 		}
 	} while (1);
+	free(recvbuf);
 }
 
 void send_to_subscriber(SOCKET * socket, char message)
@@ -358,25 +359,33 @@ DWORD WINAPI listen_publisher(LPVOID lpParam) {
 }
 
 void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper) {
-	char topic;
-	char message;
+	TString topic;
+	TString message;
 
-	unpack_message(recvbuf, &topic, &message);
-	push_message(topic, message, wrapper);
+	unpack_message(recvbuf, &topic, &message); 
+	push_message(&topic, &message, wrapper);
 
-	printf("[Publisher] New message on topic %c: [%c]\n", topic, message);
+	printf("[Publisher] New message on topic %s: [%s]\n", topic.text, message.text);
+
 }
 
-void unpack_message(char* recvbuf, char* topic, char* message) {
-	*topic = recvbuf[0];
-	*message = recvbuf[1];
+void unpack_message(char* recvbuf, TString *topic, TString *message) {
+
+	topic->length = recvbuf[0];
+	topic->text = (char*)calloc(topic->length + 1, sizeof(char));
+	memcpy(topic->text, recvbuf + 2, topic->length);
+
+	message->length = recvbuf[1];
+	message->text = (char*)calloc(message->length + 1, sizeof(char));
+	memcpy(message->text, recvbuf + 2 + topic->length, message->length);
+
 }
 
-void push_message(char topic, char message, Wrapper* wrapper) {
-	bool success = push_try(topic, message, wrapper->topic_contents);
+void push_message(TString *topic, TString *message, Wrapper* wrapper) {
+	bool success = push_try(topic->text[0], message->text[0], wrapper->topic_contents);
 	if (!success) {
-		create_topic(wrapper, topic);
-		push_try(topic, message, wrapper->topic_contents);
+		create_topic(wrapper, topic->text[0]);
+		push_try(topic->text[0], message->text[0], wrapper->topic_contents);
 	}
 }
 
@@ -480,12 +489,21 @@ DWORD WINAPI consume_messages(LPVOID lpParam) {
 	return 0;
 }
 
+TString unpack_topic(char* recvbuf) {
+	TString topic;
+	topic.length = recvbuf[0];
+	topic.text = (char*)calloc(topic.length + 1, sizeof(char));
+	memcpy(topic.text, recvbuf + 1, topic.length);
+	return topic;
+}
+
 void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper) {
-	char topic = recvbuf[0];
+
+	TString topic = unpack_topic(recvbuf);
 	ListNode *finded_content = (ListNode*)list_find(wrapper->topic_contents, &topic, compare_node_with_topic);
 
 	if (finded_content == NULL) {
-		finded_content = create_topic(wrapper, topic);
+		finded_content = create_topic(wrapper, topic.text[0]);
 	}
 
 	TopicContent *topic_content = (TopicContent*)finded_content->data;

@@ -41,17 +41,17 @@ void disconnect(SOCKET* socket) {
 
 void input_topic(char* topic) {
 	printf("Input topic (one character) : ");
-	scanf(" %c", topic);
+	scanf(" %s", topic);
 }
 
-void subscribe(SOCKET * socket, char topic)
+void subscribe(SOCKET * socket, char *topic)
 {
 	int data_size;
 	char* package = make_data_package(topic, &data_size);
 
 	bool success = send_nonblocking(socket, package, data_size);
 	if (success) {
-		printf("Subscribing on topic '%c'.\n", topic);
+		printf("Subscribing on topic '%s'.\n", topic);
 	}
 	else {
 		printf("Error occured while subscribing...\n");
@@ -88,12 +88,16 @@ bool send_all(SOCKET* socket, char *package, int data_size) {
 	return iResult == SOCKET_ERROR ? false : true;
 }
 
-char* make_data_package(char topic, int* data_size) {
+char* make_data_package(char *topic, int* data_size) {
 	//int size_of_package = strlen(topic);
-	*data_size = 1;
+
+	
+	int topic_size = strlen(topic);
+	*data_size = topic_size + 1;
 	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));
 	data_package[0] = *data_size;
-	data_package[1] = topic;
+	data_package[1] = topic_size;
+	memcpy(data_package + 2, topic, topic_size);
 	return data_package;
 }
 
@@ -267,8 +271,8 @@ void subscribing(SOCKET* connectSocket) {
 	char command;
 	do {
 		system("cls");
-		char topic;
-		input_topic(&topic);
+		char topic[MAX_INPUT_SIZE];
+		input_topic(topic);
 
 		//subsribing for specific topic
 		subscribe(connectSocket, topic);
