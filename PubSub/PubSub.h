@@ -52,6 +52,8 @@ void free_thread(void * data);
 bool compare_node_with_topic(ListNode *listNode, void* param);
 bool sendIterator(ListNode *listNode, void* param);
 bool printID(void *param);
+ListNode* create_topic(Wrapper* wrapper, char topic);
+TopicContent initializeTopic(char topic);
 #pragma endregion
 
 
@@ -62,7 +64,6 @@ void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper);
 void unpack_message(char* recvbuf, char* topic, char* message);
 void push_message(char topic, char message, Wrapper* wrapper);
 bool push_try(char topic, char message, List* topic_contents);
-void create_topic(Wrapper* wrapper, char topic);
 #pragma endregion
 
 
