@@ -3,7 +3,7 @@
 
 #include "stdafx.h"
 
-#define DEFAULT_BUFLEN 512
+#define DEFAULT_BUFLEN 512  //1KB
 
 int main(int argc, char **argv)
 {

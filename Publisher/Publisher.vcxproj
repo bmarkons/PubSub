@@ -149,11 +149,13 @@
   <ItemGroup>
     <ClInclude Include="Publisher.h" />
     <ClInclude Include="stdafx.h" />
+    <ClInclude Include="tests.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Publisher.cpp" />
     <ClCompile Include="stdafx.cpp" />
+    <ClCompile Include="tests.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

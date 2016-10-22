@@ -69,7 +69,7 @@ void PrintBuffer(TBuffer *buffer) {
 		if (i % 5 == 0) {
 			printf("\n");
 		}
-		printf(" %s ", buffer->buffer[i].text);
+		printf(" %s ", buffer->buffer[i].array);
 	}
 	printf("]\n");
 	LeaveCriticalSection(&buffer->cs);

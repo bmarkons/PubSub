@@ -56,7 +56,7 @@ bool is_ready_for_receive(SOCKET * socket) {
 	}
 }
 
-bool is_ready_for_send(SOCKET * socket,int *return_code) {
+bool is_ready_for_send(SOCKET * socket, int *return_code) {
 	// Initialize select parameters
 	FD_SET set;
 	timeval timeVal;
@@ -152,41 +152,42 @@ void start_listening(SOCKET* listenSocket, char* port) {
 
 }
 
-bool receive(SOCKET* socket, char* recvbuf) {
-	int topic_length = 0;
+bool receive(SOCKET* socket, char** recvbuf) {
 	int iResult;
 	int total_received = 0;
 	bool firstRecv = true;
+	u_short message_length = 0;
 	do {
 		if (firstRecv) {
-			iResult = recv(*socket, recvbuf + total_received, 1, 0);
-			topic_length = recvbuf[0];
+			char header[MAIN_HEADER_SIZE];
+			iResult = recv(*socket, header, 2, 0);
+			memcpy(&message_length, header, sizeof(u_short));
+			*recvbuf = (char*)realloc(*recvbuf, (message_length + 1) * sizeof(char));
 			firstRecv = false;
 		}
 		else {
-			iResult = recv(*socket, recvbuf + total_received, DEFAULT_BUFLEN, 0);
+			iResult = recv(*socket, *recvbuf + total_received, DEFAULT_BUFLEN, 0);
 			total_received += iResult;
 		}
 		if (iResult < 0) {
 			break;
 		}
 
-	} while (total_received < topic_length);
+	} while (total_received < message_length);
 
-	recvbuf[total_received] = NULL;  //set the end of the string
+	(*recvbuf)[total_received] = NULL;  //set the end of the string
 	return iResult < 0 ? false : true;
 }
 
 void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_handler) {
 	set_nonblocking_mode(socket);
-	char *recvbuf = (char*)malloc(DEFAULT_BUFLEN);
+	char *recvbuf = NULL;
 
 	do
 	{
-		bool ready = is_ready_for_receive(socket);
 		bool success;
-		if (ready) {
-			success = receive(socket, recvbuf);
+		if (is_ready_for_receive(socket)) {
+			success = receive(socket, &recvbuf);
 			if (success) {
 				message_handler(recvbuf, socket, wrapper);
 			}
@@ -200,11 +201,10 @@ void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_
 	free(recvbuf);
 }
 
-void send_to_subscriber(SOCKET * socket, TString message)
+void send_to_subscriber(SOCKET * socket, ByteArray message)
 {
-	int data_size;
-	char* package = make_data_package(message, &data_size);
-	bool success = send_nonblocking(socket, package, data_size);
+	ByteArray package = make_package(message);
+	bool success = send_nonblocking(socket, package);
 	if (success) {
 		printf("--> Message sent to subcriber : %d\n", *socket);
 	}
@@ -214,15 +214,15 @@ void send_to_subscriber(SOCKET * socket, TString message)
 
 }
 
-bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
+bool send_nonblocking(SOCKET* socket, ByteArray package) {
 	set_nonblocking_mode(socket);
 	bool success;
 	int return_code;
 	while (true) {
 
-		if (is_ready_for_send(socket,&return_code)) {
-			success = send_all(socket, package, data_size);
-			free(package);
+		if (is_ready_for_send(socket, &return_code)) {
+			success = send_all(socket, package);
+			free(package.array);
 			if (!success) {
 				closesocket(*socket);
 			}
@@ -238,26 +238,29 @@ bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
 	}
 }
 
-bool send_all(SOCKET* socket, char *package, int data_size) {
-	int package_size = data_size + HEADER_SIZE;
+bool send_all(SOCKET* socket, ByteArray package) {
 	int iResult;
 	int total_sent = 0;
 	do {
-		iResult = send(*socket, package + total_sent, package_size - total_sent, 0);
+		iResult = send(*socket, package.array + total_sent, package.size - total_sent, 0);
 		total_sent += iResult;
-	} while (total_sent < package_size);
+	} while (total_sent < package.size);
 
 	return iResult == SOCKET_ERROR ? false : true;
 }
 
-char* make_data_package(TString message, int* data_size) {
-	//int size_of_package = strlen(topic);
-	*data_size = message.length + 1;
-	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));
-	data_package[0] = *data_size;
-	data_package[1] = message.length;
-	memcpy(data_package + 2, message.text, message.length);
-	return data_package;
+ByteArray make_package(ByteArray message) {
+	ByteArray package;
+	package.size = message.size + 4;
+	package.array = (char*)malloc(package.size * sizeof(char));
+
+	u_short main_header = package.size - 2;
+	u_short message_header = message.size;
+	memcpy(package.array, &main_header, sizeof(u_short));
+	memcpy(package.array + 2, &message_header, sizeof(u_short));
+	memcpy(package.array + 4, message.array, message.size);
+
+	return package;
 }
 #pragma endregion
 
@@ -277,10 +280,10 @@ void free_thread(void * data) {
 
 bool compare_node_with_topic(ListNode* listNode, void* param) {
 
-	TString find_topic = *(TString*)param;
+	ByteArray find_topic = *(ByteArray*)param;
 
 	TopicContent *current_topic_content = (TopicContent*)listNode->data;
-	TString current_topic = current_topic_content->topic;
+	ByteArray current_topic = current_topic_content->topic;
 
 	if (is_equal_string(current_topic, find_topic)) {
 		return true;
@@ -292,7 +295,7 @@ bool compare_node_with_topic(ListNode* listNode, void* param) {
 
 bool sendIterator(ListNode *listNode, void* param) {
 
-	TString message = *(TString*)param;
+	ByteArray message = *(ByteArray*)param;
 
 	SOCKET socket = *(SOCKET*)listNode->data;
 
@@ -319,7 +322,7 @@ bool printID(void *param) {
 	return true;
 }
 
-ListNode* create_topic(Wrapper* wrapper, TString topic) {
+ListNode* create_topic(Wrapper* wrapper, ByteArray topic) {
 	TopicContent new_topic = initializeTopic(topic);
 	ListNode* node = list_append(wrapper->topic_contents, &new_topic);
 
@@ -333,7 +336,7 @@ ListNode* create_topic(Wrapper* wrapper, TString topic) {
 	return node;
 }
 
-TopicContent initializeTopic(TString topic) {
+TopicContent initializeTopic(ByteArray topic) {
 	TopicContent new_topic;
 	new_topic.topic = topic;
 	list_new(&new_topic.sockets, sizeof(SOCKET), free_socket);
@@ -341,12 +344,12 @@ TopicContent initializeTopic(TString topic) {
 	return new_topic;
 }
 
-bool is_equal_string(TString s1, TString s2) {
-	if (s1.length != s2.length) {
+bool is_equal_string(ByteArray s1, ByteArray s2) {
+	if (s1.size != s2.size) {
 		return false;
 	}
-	for (int i = 0; i < s1.length; i++) {
-		if (s1.text[i] != s2.text[i]) {
+	for (int i = 0; i < s1.size; i++) {
+		if (s1.array[i] != s2.array[i]) {
 			return false;
 		}
 	}
@@ -402,37 +405,38 @@ DWORD WINAPI listen_publisher(LPVOID lpParam) {
 }
 
 void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper) {
-	TString topic;
-	TString message;
+	ByteArray topic;
+	ByteArray message;
 
 	unpack_message(recvbuf, &topic, &message);
 	push_message(topic, message, wrapper);
 
-	printf("[Publisher] New message on topic %s: [%s]\n", topic.text, message.text);
+	printf("[Publisher] New message on topic %s: [%s]\n", topic.array, message.array);
 
 }
 
-void unpack_message(char* recvbuf, TString *topic, TString *message) {
+void unpack_message(char* recvbuf, ByteArray *topic, ByteArray *message) {
+	u_short proba;
+	memcpy(&(topic->size), recvbuf, sizeof(u_short));
+	topic->array = (char*)calloc(1, (topic->size + 1) * sizeof(char));
+	memcpy(topic->array, recvbuf + 4, topic->size);
 
-	topic->length = recvbuf[0];
-	topic->text = (char*)calloc(topic->length + 1, sizeof(char));
-	memcpy(topic->text, recvbuf + 2, topic->length);
-
-	message->length = recvbuf[1];
-	message->text = (char*)calloc(message->length + 1, sizeof(char));
-	memcpy(message->text, recvbuf + 2 + topic->length, message->length);
+	memcpy(&message->size, recvbuf + 2, sizeof(u_short));
+	message->array = (char*)calloc(1, (message->size + 1) * sizeof(char));
+	memcpy(message->array, recvbuf + 4 + topic->size, message->size);
 
 }
 
-void push_message(TString topic, TString message, Wrapper* wrapper) {
+void push_message(ByteArray topic, ByteArray message, Wrapper* wrapper) {
 	bool success = push_try(topic, message, wrapper->topic_contents);
 	if (!success) {
 		create_topic(wrapper, topic);
 		push_try(topic, message, wrapper->topic_contents);
 	}
+	free(topic.array);
 }
 
-bool push_try(TString topic, TString message, List* topic_contents) {
+bool push_try(ByteArray topic, ByteArray message, List* topic_contents) {
 	ListNode* node = (ListNode*)list_find(topic_contents, &topic, compare_node_with_topic);
 
 	if (node == NULL) {
@@ -497,18 +501,19 @@ DWORD WINAPI listen_subscriber(LPVOID lpParam) {
 
 DWORD WINAPI consume_messages(LPVOID lpParam) {
 	TopicContent *topic_content = (TopicContent*)lpParam;
-	TString message;
-	int num_of_removed=0;
+	ByteArray message;
+	int num_of_removed = 0;
 	while (true) {
 		num_of_removed = clean_from_closed_sockets(&topic_content->sockets);
 
 		if (num_of_removed != 0)
-			printf("Removed %d closed socket on %s topic\n", num_of_removed, topic_content->topic.text);
+			printf("Removed %d closed socket on %s topic\n", num_of_removed, topic_content->topic.array);
 
 		bool success = Pop(&topic_content->message_buffer, &message);
 		if (success) {
-			printf("Sending message [%s] to all subscribers on topic '%s'...\n", message.text, topic_content->topic.text);
+			printf("Sending message [%s] to all subscribers on topic '%s'...\n", message.array, topic_content->topic.array);
 			send_to_sockets(&topic_content->sockets, message);
+			free(message.array);
 		}
 		Sleep(SERVER_SLEEP_TIME);
 	}
@@ -563,17 +568,17 @@ int clean_from_closed_sockets(List* sockets) {
 
 }
 
-TString unpack_topic(char* recvbuf) {
-	TString topic;
-	topic.length = recvbuf[0];
-	topic.text = (char*)calloc(topic.length + 1, sizeof(char));
-	memcpy(topic.text, recvbuf + 1, topic.length);
+ByteArray unpack_topic(char* recvbuf) {
+	ByteArray topic;
+	memcpy(&topic.size, recvbuf, sizeof(u_short));
+	topic.array = (char*)calloc(topic.size + 1, sizeof(char));
+	memcpy(topic.array, recvbuf + 2, topic.size);
 	return topic;
 }
 
 void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper) {
 
-	TString topic = unpack_topic(recvbuf);
+	ByteArray topic = unpack_topic(recvbuf);
 	ListNode *finded_content = (ListNode*)list_find(wrapper->topic_contents, &topic, compare_node_with_topic);
 
 	if (finded_content == NULL) {
@@ -583,24 +588,24 @@ void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper) {
 	TopicContent *topic_content = (TopicContent*)finded_content->data;
 	list_append(&topic_content->sockets, socket);
 
-	printf("[Subscriber] New subscription on topic: %s.\n", topic.text);
+	printf("[Subscriber] New subscription on topic: %s.\n", topic.array);
 
 	int data_size;
-	TString succes_message;
-	succes_message.length = 1;
-	succes_message.text = (char*)calloc(1, sizeof(char));
-	succes_message.text[0] = SUBSCRIBE_SUCCESS;
+	ByteArray succes_message;
+	succes_message.size = 1;
+	succes_message.array = (char*)calloc(1, sizeof(char));
+	succes_message.array[0] = SUBSCRIBE_SUCCESS;
 
-	char* package = make_data_package(succes_message, &data_size);
-	bool success = send_nonblocking(socket, package, data_size);
+	ByteArray package = make_package(succes_message);
+	bool success = send_nonblocking(socket, package);
 	if (!success) {
 		printf("Error occured while sending subscription confirmation.\n");
 	}
 
-	free(succes_message.text);
+	free(succes_message.array);
 }
 
-void send_to_sockets(List *sockets, TString message) {
+void send_to_sockets(List *sockets, ByteArray message) {
 	list_for_each_param(sockets, sendIterator, &message);
 }
 
@@ -612,8 +617,8 @@ DWORD WINAPI thread_collector(LPVOID lpParam) {
 	Wrapper *wrapper = (Wrapper*)lpParam;
 
 	while (true) {
-	/*	printf("\nBefore");
-		print_all_threads(wrapper->thread_list);*/
+		/*	printf("\nBefore");
+			print_all_threads(wrapper->thread_list);*/
 
 		find_and_remove_terminated(wrapper->thread_list);
 

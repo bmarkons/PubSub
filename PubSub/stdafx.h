@@ -12,10 +12,10 @@
 #include <conio.h>
 #include <assert.h>
 
-typedef struct _string {
-	int length;
-	char* text;
-}TString;
+typedef struct _byte_array {
+	u_short size;
+	char* array;
+}ByteArray;
 
 #include "list.h"
 #include "buffer.h"
