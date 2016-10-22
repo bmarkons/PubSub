@@ -96,9 +96,12 @@ ByteArray make_package(ByteArray message, ByteArray topic) {
 	package.size = PACKAGE_HEADER_SIZE + topic.size + message.size;
 	package.array = (char*)malloc(package.size * sizeof(char));
 
-	package.array[0] = package.size - 1;	// size of the rest of package
-	package.array[1] = topic.size;			// size of topic
-	package.array[2] = message.size;		// size of message
+	u_short main_header = package.size - 2;	// size of the rest of package
+	u_short topic_header = topic.size;		// size of topic
+	u_short message_header = message.size;	// size of message
+	memcpy(package.array, &main_header, sizeof(u_short));
+	memcpy(package.array + 2, &topic_header, sizeof(u_short));
+	memcpy(package.array + 4, &message_header, sizeof(short));
 
 	memcpy(package.array + PACKAGE_HEADER_SIZE, topic.array, topic.size);
 	memcpy(package.array + (PACKAGE_HEADER_SIZE + topic.size), message.array, message.size);

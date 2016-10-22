@@ -1,7 +1,7 @@
 #pragma once
 
 #define SERVER_SLEEP_TIME 50
-#define PACKAGE_HEADER_SIZE 3
+#define PACKAGE_HEADER_SIZE 6
 #define MAX_INPUT_SIZE 100
 
 typedef struct _byte_array {

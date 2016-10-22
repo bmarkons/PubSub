@@ -22,7 +22,7 @@ bool is_test() {
 
 void start_1GB_test(SOCKET *socket) {
 	ByteArray message;
-	message.size = 200;
+	message.size = 1024;
 	message.array = (char*)malloc(message.size * sizeof(char));
 	memset(message.array, 'a', message.size);
 
@@ -31,11 +31,11 @@ void start_1GB_test(SOCKET *socket) {
 	topic.array = (char*)malloc(topic.size * sizeof(char));
 	topic.array[0] = '1';
 
-	int num_of_msg = 1024 * 1024 * 5;
+	int num_of_msg = 1024 * 1024;
 
 	for (int i = 0; i < num_of_msg; i++) {
 		publish(message, topic, socket);
-		//Sleep(100);
+		Sleep(100);
 	}
 
 }

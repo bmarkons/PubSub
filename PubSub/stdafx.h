@@ -13,7 +13,7 @@
 #include <assert.h>
 
 typedef struct _byte_array {
-	int size;
+	u_short size;
 	char* array;
 }ByteArray;
 

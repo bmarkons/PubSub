@@ -156,14 +156,14 @@ bool receive(SOCKET* socket, char** recvbuf) {
 	int iResult;
 	int total_received = 0;
 	bool firstRecv = true;
-	char header;
-	int message_length = 0;
+	u_short message_length = 0;
 	do {
 		if (firstRecv) {
-			iResult = recv(*socket, &header, 1, 0);
-			firstRecv = false;
-			message_length = (u_char)header;
+			char header[MAIN_HEADER_SIZE];
+			iResult = recv(*socket, header, 2, 0);
+			memcpy(&message_length, header, sizeof(u_short));
 			*recvbuf = (char*)realloc(*recvbuf, (message_length + 1) * sizeof(char));
+			firstRecv = false;
 		}
 		else {
 			iResult = recv(*socket, *recvbuf + total_received, DEFAULT_BUFLEN, 0);
@@ -203,9 +203,8 @@ void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_
 
 void send_to_subscriber(SOCKET * socket, ByteArray message)
 {
-	int data_size;
-	char* package = make_data_package(message, &data_size);
-	bool success = send_nonblocking(socket, package, data_size);
+	ByteArray package = make_package(message);
+	bool success = send_nonblocking(socket, package);
 	if (success) {
 		printf("--> Message sent to subcriber : %d\n", *socket);
 	}
@@ -215,15 +214,15 @@ void send_to_subscriber(SOCKET * socket, ByteArray message)
 
 }
 
-bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
+bool send_nonblocking(SOCKET* socket, ByteArray package) {
 	set_nonblocking_mode(socket);
 	bool success;
 	int return_code;
 	while (true) {
 
 		if (is_ready_for_send(socket, &return_code)) {
-			success = send_all(socket, package, data_size);
-			free(package);
+			success = send_all(socket, package);
+			free(package.array);
 			if (!success) {
 				closesocket(*socket);
 			}
@@ -239,26 +238,29 @@ bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
 	}
 }
 
-bool send_all(SOCKET* socket, char *package, int data_size) {
-	int package_size = data_size + HEADER_SIZE;
+bool send_all(SOCKET* socket, ByteArray package) {
 	int iResult;
 	int total_sent = 0;
 	do {
-		iResult = send(*socket, package + total_sent, package_size - total_sent, 0);
+		iResult = send(*socket, package.array + total_sent, package.size - total_sent, 0);
 		total_sent += iResult;
-	} while (total_sent < package_size);
+	} while (total_sent < package.size);
 
 	return iResult == SOCKET_ERROR ? false : true;
 }
 
-char* make_data_package(ByteArray message, int* data_size) {
-	//int size_of_package = strlen(topic);
-	*data_size = message.size + 1;
-	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));
-	data_package[0] = *data_size;
-	data_package[1] = message.size;
-	memcpy(data_package + 2, message.array, message.size);
-	return data_package;
+ByteArray make_package(ByteArray message) {
+	ByteArray package;
+	package.size = message.size + 4;
+	package.array = (char*)malloc(package.size * sizeof(char));
+
+	u_short main_header = package.size - 2;
+	u_short message_header = message.size;
+	memcpy(package.array, &main_header, sizeof(u_short));
+	memcpy(package.array + 2, &message_header, sizeof(u_short));
+	memcpy(package.array + 4, message.array, message.size);
+
+	return package;
 }
 #pragma endregion
 
@@ -414,13 +416,14 @@ void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper) {
 }
 
 void unpack_message(char* recvbuf, ByteArray *topic, ByteArray *message) {
-	topic->size = (unsigned char)recvbuf[0];
+	u_short proba;
+	memcpy(&(topic->size), recvbuf, sizeof(u_short));
 	topic->array = (char*)calloc(1, (topic->size + 1) * sizeof(char));
-	memcpy(topic->array, recvbuf + 2, topic->size);
+	memcpy(topic->array, recvbuf + 4, topic->size);
 
-	message->size = (unsigned char)recvbuf[1];
+	memcpy(&message->size, recvbuf + 2, sizeof(u_short));
 	message->array = (char*)calloc(1, (message->size + 1) * sizeof(char));
-	memcpy(message->array, recvbuf + 2 + topic->size, message->size);
+	memcpy(message->array, recvbuf + 4 + topic->size, message->size);
 
 }
 
@@ -567,9 +570,9 @@ int clean_from_closed_sockets(List* sockets) {
 
 ByteArray unpack_topic(char* recvbuf) {
 	ByteArray topic;
-	topic.size = recvbuf[0];
+	memcpy(&topic.size, recvbuf, sizeof(u_short));
 	topic.array = (char*)calloc(topic.size + 1, sizeof(char));
-	memcpy(topic.array, recvbuf + 1, topic.size);
+	memcpy(topic.array, recvbuf + 2, topic.size);
 	return topic;
 }
 
@@ -593,8 +596,8 @@ void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper) {
 	succes_message.array = (char*)calloc(1, sizeof(char));
 	succes_message.array[0] = SUBSCRIBE_SUCCESS;
 
-	char* package = make_data_package(succes_message, &data_size);
-	bool success = send_nonblocking(socket, package, data_size);
+	ByteArray package = make_package(succes_message);
+	bool success = send_nonblocking(socket, package);
 	if (!success) {
 		printf("Error occured while sending subscription confirmation.\n");
 	}

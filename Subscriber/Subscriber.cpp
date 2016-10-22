@@ -44,30 +44,26 @@ void input_topic(char* topic) {
 	scanf(" %s", topic);
 }
 
-void subscribe(SOCKET * socket, char *topic)
+void subscribe(SOCKET * socket, ByteArray topic)
 {
-	int data_size;
-	char* package = make_data_package(topic, &data_size);
+	ByteArray package = make_package(topic);
 
-	bool success = send_nonblocking(socket, package, data_size);
+	bool success = send_nonblocking(socket, package);
 	if (success) {
-		printf("Subscribing on topic '%s'.\n", topic);
+		printf("Subscribing on topic '%s'.\n", topic.array);
 	}
 	else {
 		printf("Error occured while subscribing...\n");
 	}
 }
 
-bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
+bool send_nonblocking(SOCKET* socket, ByteArray package) {
 	set_nonblocking_mode(socket);
-
 	while (true) {
-		bool ready = is_ready_for_send(socket);
 		bool success;
-
-		if (ready) {
-			success = send_all(socket, package, data_size);
-			free(package);
+		if (is_ready_for_send(socket)) {
+			success = send_all(socket, package);
+			free(package.array);
 			if (!success) {
 				closesocket(*socket);
 			}
@@ -76,35 +72,35 @@ bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
 	}
 }
 
-bool send_all(SOCKET* socket, char *package, int data_size) {
-	int package_size = data_size + HEADER_SIZE;
+bool send_all(SOCKET* socket, ByteArray package) {
 	int iResult;
 	int total_sent = 0;
 	do {
-		iResult = send(*socket, package + total_sent, package_size - total_sent, 0);
+		iResult = send(*socket, package.array + total_sent, package.size - total_sent, 0);
 		total_sent += iResult;
-	} while (total_sent < package_size);
+	} while (total_sent < package.size);
 
 	return iResult == SOCKET_ERROR ? false : true;
 }
 
-char* make_data_package(char *topic, int* data_size) {
-	//int size_of_package = strlen(topic);
+ByteArray make_package(ByteArray topic) {
+	ByteArray package;
+	package.size = topic.size + 4;
+	package.array = (char*)calloc(package.size + 1, sizeof(char));
 
+	u_short main_header = package.size - 2;
+	u_short topic_header = topic.size;
+	memcpy(package.array, &main_header, sizeof(u_short));
+	memcpy(package.array + 2, &topic_header, sizeof(u_short));
+	memcpy(package.array + 4, topic.array, topic.size);
 
-	int topic_size = strlen(topic);
-	*data_size = topic_size + 1;
-	char* data_package = (char*)malloc(sizeof(char)*(*data_size + 1));
-	data_package[0] = *data_size;
-	data_package[1] = topic_size;
-	memcpy(data_package + 2, topic, topic_size);
-	return data_package;
+	return package;
 }
 
 void wait_for_message(SOCKET * socket, unsigned buffer_size)
 {
 	int iResult;
-	char *recvbuf=NULL;
+	char *recvbuf = NULL;
 	//set parameter for NonBlocking mode
 	set_nonblocking_mode(socket);
 
@@ -115,7 +111,8 @@ void wait_for_message(SOCKET * socket, unsigned buffer_size)
 		if (is_ready_for_receive(socket)) {
 			success = receive(socket, &recvbuf);
 			if (success) {
-				printf("Message received from client: %s.\n", recvbuf + 1);
+				printf("Message received from client: %s.\n", recvbuf + 2);
+				printf("%d\n", strlen(recvbuf + 2));
 			}
 			else {
 				printf("Error occured while receiving message from socket.\n");
@@ -138,15 +135,14 @@ void checkConfimation(SOCKET *socket) {
 		if (is_ready_for_receive(socket)) {
 			success = receive(socket, &recvbuf);
 			if (success) {
-				if (recvbuf[1] == SUBSCRIBE_SUCCESS) {
+				if (recvbuf[2] == SUBSCRIBE_SUCCESS) {
 					printf("SUCCESS!\n");
-					break;
 				}
 				else {
 					printf("FAIL!\n");
 					closesocket(*socket);
-					break;
 				}
+				break;
 			}
 			else {
 				printf("recv failed with error while subscribing: %d\n.\n", WSAGetLastError());
@@ -237,19 +233,17 @@ bool is_ready_for_send(SOCKET * socket) {
 }
 
 bool receive(SOCKET* socket, char** recvbuf) {
-	int message_length = 0;
+	u_int message_length = 0;
 	int iResult;
 	int total_received = 0;
 	bool firstRecv = true;
-
 	do {
-
 		if (firstRecv) {
-			char header;
-			iResult = recv(*socket, &header, 1, 0);
-			message_length = (unsigned char)header;
+			char header[MAIN_HEADER_SIZE];
+			iResult = recv(*socket, header, MAIN_HEADER_SIZE, 0);
+			memcpy(&message_length, header, sizeof(u_short));
+			*recvbuf = (char*)calloc(message_length + 1, sizeof(char));
 			firstRecv = false;
-			*recvbuf = (char*)calloc(message_length+1, sizeof(char));
 		}
 		else {
 			iResult = recv(*socket, *recvbuf + total_received, DEFAULT_BUFLEN, 0);
@@ -272,7 +266,10 @@ void subscribing(SOCKET* connectSocket) {
 		input_topic(topic);
 
 		//subsribing for specific topic
-		subscribe(connectSocket, topic);
+		ByteArray topic_bytes;
+		topic_bytes.size = strlen(topic);
+		topic_bytes.array = topic;
+		subscribe(connectSocket, topic_bytes);
 
 		//check if server returns a message that everything is ok
 		checkConfimation(connectSocket);
