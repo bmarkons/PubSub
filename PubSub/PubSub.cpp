@@ -56,7 +56,7 @@ bool is_ready_for_receive(SOCKET * socket) {
 	}
 }
 
-bool is_ready_for_send(SOCKET * socket) {
+bool is_ready_for_send(SOCKET * socket,int *return_code) {
 	// Initialize select parameters
 	FD_SET set;
 	timeval timeVal;
@@ -72,9 +72,11 @@ bool is_ready_for_send(SOCKET * socket) {
 
 	int iResult = select(0 /* ignored */, NULL, &set, NULL, &timeVal); //3rd parametar is set because need select for send
 																	   // lets check if there was an error during select
+
+	*return_code = iResult;
+
 	if (iResult == SOCKET_ERROR)
 	{
-		fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
 		return false;
 	}
 	// now, lets check if there are any sockets ready
@@ -214,18 +216,24 @@ void send_to_subscriber(SOCKET * socket, TString message)
 
 bool send_nonblocking(SOCKET* socket, char* package, int data_size) {
 	set_nonblocking_mode(socket);
-
+	bool success;
+	int return_code;
 	while (true) {
-		bool ready = is_ready_for_send(socket);
-		bool success;
 
-		if (ready) {
+		if (is_ready_for_send(socket,&return_code)) {
 			success = send_all(socket, package, data_size);
 			free(package);
 			if (!success) {
 				closesocket(*socket);
 			}
 			return success;
+		}
+		else {
+			if (return_code == SOCKET_ERROR) {
+				fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
+				closesocket(*socket);
+				return false;
+			}
 		}
 	}
 }
@@ -490,7 +498,12 @@ DWORD WINAPI listen_subscriber(LPVOID lpParam) {
 DWORD WINAPI consume_messages(LPVOID lpParam) {
 	TopicContent *topic_content = (TopicContent*)lpParam;
 	TString message;
+	int num_of_removed=0;
 	while (true) {
+		num_of_removed = clean_from_closed_sockets(&topic_content->sockets);
+
+		if (num_of_removed != 0)
+			printf("Removed %d closed socket on %s topic\n", num_of_removed, topic_content->topic.text);
 
 		bool success = Pop(&topic_content->message_buffer, &message);
 		if (success) {
@@ -500,6 +513,54 @@ DWORD WINAPI consume_messages(LPVOID lpParam) {
 		Sleep(SERVER_SLEEP_TIME);
 	}
 	return 0;
+}
+/*return number of deleted socket from list*/
+int clean_from_closed_sockets(List* sockets) {
+
+	int count = 0;//number of deleted sockets
+	EnterCriticalSection(&sockets->cs);
+
+	ListNode *node = sockets->head;
+	ListNode *previous = NULL;
+	SOCKET *socket;
+	int return_code;//return code from function is_ready_for_send
+
+	while (node != NULL) {
+		socket = (SOCKET*)node->data;
+
+		is_ready_for_send(socket, &return_code);
+
+		if (return_code == SOCKET_ERROR) {
+
+			closesocket(*socket);
+			count++;
+
+			if (previous == NULL) {
+				sockets->head = node->next;
+				free(node);
+				sockets->logicalLength--;
+				node = sockets->head;
+			}
+			else {
+				previous->next = node->next;
+
+				if (sockets->tail == node) {
+					sockets->tail = previous;
+				}
+				free(node);
+				sockets->logicalLength--;
+				node = previous->next;
+			}
+		}
+		else {
+			previous = node;
+			node = node->next;
+		}
+	}
+	LeaveCriticalSection(&sockets->cs);
+	return count;
+
+
 }
 
 TString unpack_topic(char* recvbuf) {
@@ -551,13 +612,13 @@ DWORD WINAPI thread_collector(LPVOID lpParam) {
 	Wrapper *wrapper = (Wrapper*)lpParam;
 
 	while (true) {
-		printf("\nBefore");
-		print_all_threads(wrapper->thread_list);
+	/*	printf("\nBefore");
+		print_all_threads(wrapper->thread_list);*/
 
 		find_and_remove_terminated(wrapper->thread_list);
 
-		printf("\nAfter");
-		print_all_threads(wrapper->thread_list);
+		//printf("\nAfter");
+		//print_all_threads(wrapper->thread_list);
 		Sleep(2000);
 	}
 	return 0;

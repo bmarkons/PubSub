@@ -36,6 +36,7 @@ typedef void(*messageHandler)(char*, SOCKET*, Wrapper*);
 void InitializeWindowsSockets();
 void set_nonblocking_mode(SOCKET* socket);
 bool is_ready_for_receive(SOCKET* socket);
+bool is_ready_for_send(SOCKET * socket, int *return_code);
 void start_listening(SOCKET* listenSocket, char* port);
 bool receive(SOCKET* socket, char* recvbuf);
 void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_handler);
@@ -43,7 +44,6 @@ void send_to_subscriber(SOCKET * socket, TString message);
 bool send_nonblocking(SOCKET* socket, char* package, int data_size);
 bool send_all(SOCKET* socket, char *package, int data_size);
 char* make_data_package(TString message, int* data_size);
-bool is_ready_for_send(SOCKET * socket);
 #pragma endregion
 
 
@@ -77,6 +77,7 @@ DWORD WINAPI consume_messages(LPVOID lpParam);
 void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper);
 TString unpack_topic(char* recvbuf);
 void send_to_sockets(List *sockets, TString message);
+int clean_from_closed_sockets(List* sockets);
 #pragma endregion
 
 #pragma region THREAD_COLLECTOR
