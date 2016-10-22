@@ -550,10 +550,16 @@ DWORD WINAPI thread_collector(LPVOID lpParam) {
 
 	Wrapper *wrapper = (Wrapper*)lpParam;
 
-	//TODO finding TERMINATED thread and close
-	//TODO remove closed thread from list
+	while (true) {
+		printf("\nBefore");
+		print_all_threads(wrapper->thread_list);
 
+		find_and_remove_terminated(wrapper->thread_list);
 
+		printf("\nAfter");
+		print_all_threads(wrapper->thread_list);
+		Sleep(2000);
+	}
 	return 0;
 }
 
@@ -562,5 +568,51 @@ void add_to_thread_list(List* thread_list, HANDLE handle, DWORD handle_id) {
 	thread.handle = handle;
 	thread.id = handle_id;
 	list_append(thread_list, &thread);
+}
+
+void find_and_remove_terminated(List* thread_list) {
+	EnterCriticalSection(&thread_list->cs);
+
+	ListNode *node = thread_list->head;
+	ListNode *previous = NULL;
+	DWORD result;
+	TThread *thread;
+
+	while (node != NULL) {
+		thread = (TThread*)node->data;
+		result = WaitForSingleObject(thread->handle, 0);
+		if (result == WAIT_OBJECT_0) {
+			/*shutdown terminated thread*/
+			CloseHandle(thread->handle);
+
+			if (previous == NULL) {
+				thread_list->head = node->next;
+				free(node);
+				thread_list->logicalLength--;
+				node = thread_list->head;
+			}
+			else {
+				previous->next = node->next;
+
+				if (thread_list->tail == node) {
+					thread_list->tail = previous;
+				}
+				free(node);
+				thread_list->logicalLength--;
+				node = previous->next;
+			}
+		}
+		else {
+			previous = node;
+			node = node->next;
+		}
+	}
+	LeaveCriticalSection(&thread_list->cs);
+}
+
+void print_all_threads(List* thread_list) {
+	printf("\n ***Print threads***\n");
+	printf(" -Number of threads: %d\n", thread_list->logicalLength);
+	list_for_each(thread_list, printID);
 }
 #pragma endregion
