@@ -104,7 +104,7 @@ char* make_data_package(char *topic, int* data_size) {
 void wait_for_message(SOCKET * socket, unsigned buffer_size)
 {
 	int iResult;
-	char *recvbuf = (char*)malloc(buffer_size);
+	char *recvbuf=NULL;
 	//set parameter for NonBlocking mode
 	set_nonblocking_mode(socket);
 
@@ -113,7 +113,7 @@ void wait_for_message(SOCKET * socket, unsigned buffer_size)
 	{
 		bool success;
 		if (is_ready_for_receive(socket)) {
-			success = receive(socket, recvbuf);
+			success = receive(socket, &recvbuf);
 			if (success) {
 				printf("Message received from client: %s.\n", recvbuf + 1);
 			}
@@ -128,7 +128,7 @@ void wait_for_message(SOCKET * socket, unsigned buffer_size)
 
 void checkConfimation(SOCKET *socket) {
 	int iResult;
-	char *recvbuf = (char*)malloc(1);
+	char *recvbuf = NULL;
 	//set parameter for NonBlocking mode
 	set_nonblocking_mode(socket);
 
@@ -136,7 +136,7 @@ void checkConfimation(SOCKET *socket) {
 	{
 		bool success;
 		if (is_ready_for_receive(socket)) {
-			success = receive(socket, recvbuf);
+			success = receive(socket, &recvbuf);
 			if (success) {
 				if (recvbuf[1] == SUBSCRIBE_SUCCESS) {
 					printf("SUCCESS!\n");
@@ -236,27 +236,31 @@ bool is_ready_for_send(SOCKET * socket) {
 	return true;
 }
 
-bool receive(SOCKET* socket, char* recvbuf) {
-	int topic_length = 0;
+bool receive(SOCKET* socket, char** recvbuf) {
+	int message_length = 0;
 	int iResult;
 	int total_received = 0;
 	bool firstRecv = true;
+
 	do {
+
 		if (firstRecv) {
-			iResult = recv(*socket, recvbuf, 1, 0);
-			topic_length = recvbuf[0];
+			char header;
+			iResult = recv(*socket, &header, 1, 0);
+			message_length = (unsigned char)header;
 			firstRecv = false;
+			*recvbuf = (char*)calloc(message_length+1, sizeof(char));
 		}
 		else {
-			iResult = recv(*socket, recvbuf + total_received, DEFAULT_BUFLEN, 0);
+			iResult = recv(*socket, *recvbuf + total_received, DEFAULT_BUFLEN, 0);
 			total_received += iResult;
 		}
 		if (iResult < 0) {
 			break;
 		}
-	} while (total_received < topic_length);
+	} while (total_received < message_length);
 
-	recvbuf[total_received] = NULL;  //set the end of the string
+	(*recvbuf)[total_received] = NULL;  //set the end of the string
 	return iResult < 0 ? false : true;
 }
 

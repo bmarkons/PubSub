@@ -3,7 +3,7 @@
 #define SUBSCRIBE_SUCCESS 5
 #define SUBSCRIBE_FAIL 6
 #define SERVER_SLEEP_TIME 50
-#define DEFAULT_BUFLEN 10
+#define DEFAULT_BUFLEN 100
 #define HEADER_SIZE 1
 #define MAX_INPUT_SIZE 100
 
@@ -26,5 +26,5 @@ void checkConfimation(SOCKET* socket);
 void set_nonblocking_mode(SOCKET* socket);
 bool is_ready_for_receive(SOCKET* socket);
 bool is_ready_for_send(SOCKET * socket);
-bool receive(SOCKET* socket, char* recvbuf);
+bool receive(SOCKET* socket, char** recvbuf);
 void subscribing(SOCKET*);

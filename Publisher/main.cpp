@@ -1,3 +1,4 @@
+
 #include "stdafx.h"
 
 int main(int argc, char **argv)
@@ -8,8 +9,14 @@ int main(int argc, char **argv)
 	connectToServer(&connectSocket, argv[1], DEFAULT_PORT);
 	printf("You are connected to PubSubEngine!\n");
 
-	publishing_loop(&connectSocket);
-
+	if (is_test()) {
+		start_1GB_test(&connectSocket);
+	}
+	else {
+		publishing_loop(&connectSocket);
+	}
+	getchar();
 	disconnect(&connectSocket);
 	return 0;
 }
+

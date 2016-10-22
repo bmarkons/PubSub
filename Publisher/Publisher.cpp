@@ -92,7 +92,7 @@ char* make_package(char *message, char *topic, int *package_size) {
 	*package_size = 3 + topic_size + message_size;
 	char* data_package = (char*)malloc((*package_size) * sizeof(char));
 
-	data_package[0] = (*package_size) - 1;	// size of the rest of package
+	data_package[0] = ((*package_size) - 1);	// size of the rest of package
 	data_package[1] = topic_size;			// size of topic
 	data_package[2] = message_size;			// size of message
 

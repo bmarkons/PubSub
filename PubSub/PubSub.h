@@ -3,7 +3,7 @@
 #define SUBSCRIBE_SUCCESS 5
 #define SUBSCRIBE_FAIL 6
 #define SERVER_SLEEP_TIME 50
-#define DEFAULT_BUFLEN 10
+#define DEFAULT_BUFLEN 200
 #define INIT_BUFFER_SIZE 30
 #define HEADER_SIZE 1
 
@@ -38,7 +38,7 @@ void set_nonblocking_mode(SOCKET* socket);
 bool is_ready_for_receive(SOCKET* socket);
 bool is_ready_for_send(SOCKET * socket, int *return_code);
 void start_listening(SOCKET* listenSocket, char* port);
-bool receive(SOCKET* socket, char* recvbuf);
+bool receive(SOCKET* socket, char** recvbuf);
 void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_handler);
 void send_to_subscriber(SOCKET * socket, TString message);
 bool send_nonblocking(SOCKET* socket, char* package, int data_size);

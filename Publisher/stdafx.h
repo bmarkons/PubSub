@@ -10,4 +10,5 @@
 #include <stdio.h>
 #include <conio.h>
 #include "Publisher.h"
+#include "tests.h"
 

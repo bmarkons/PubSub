@@ -152,41 +152,43 @@ void start_listening(SOCKET* listenSocket, char* port) {
 
 }
 
-bool receive(SOCKET* socket, char* recvbuf) {
-	int topic_length = 0;
+bool receive(SOCKET* socket, char** recvbuf) {
 	int iResult;
 	int total_received = 0;
 	bool firstRecv = true;
+	char header;
+	int message_length = 0;
 	do {
 		if (firstRecv) {
-			iResult = recv(*socket, recvbuf + total_received, 1, 0);
-			topic_length = recvbuf[0];
+			iResult = recv(*socket, &header, 1, 0);
 			firstRecv = false;
+			message_length = (unsigned char) header;
+			*recvbuf = (char*)calloc(message_length + 1, sizeof(char));
 		}
 		else {
-			iResult = recv(*socket, recvbuf + total_received, DEFAULT_BUFLEN, 0);
+			iResult = recv(*socket, *recvbuf + total_received, DEFAULT_BUFLEN, 0);
 			total_received += iResult;
 		}
 		if (iResult < 0) {
 			break;
 		}
 
-	} while (total_received < topic_length);
+	} while (total_received < message_length);
 
-	recvbuf[total_received] = NULL;  //set the end of the string
+	(*recvbuf)[total_received] = NULL;  //set the end of the string
 	return iResult < 0 ? false : true;
 }
 
 void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_handler) {
 	set_nonblocking_mode(socket);
-	char *recvbuf = (char*)malloc(DEFAULT_BUFLEN);
+	char *recvbuf = NULL;
 
 	do
 	{
 		bool ready = is_ready_for_receive(socket);
 		bool success;
 		if (ready) {
-			success = receive(socket, recvbuf);
+			success = receive(socket, &recvbuf);
 			if (success) {
 				message_handler(recvbuf, socket, wrapper);
 			}
@@ -414,11 +416,11 @@ void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper) {
 
 void unpack_message(char* recvbuf, TString *topic, TString *message) {
 
-	topic->length = recvbuf[0];
+	topic->length = (unsigned char)recvbuf[0];
 	topic->text = (char*)calloc(topic->length + 1, sizeof(char));
 	memcpy(topic->text, recvbuf + 2, topic->length);
 
-	message->length = recvbuf[1];
+	message->length = (unsigned char)recvbuf[1];
 	message->text = (char*)calloc(message->length + 1, sizeof(char));
 	memcpy(message->text, recvbuf + 2 + topic->length, message->length);
 
