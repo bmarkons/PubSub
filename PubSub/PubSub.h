@@ -82,4 +82,6 @@ void send_to_sockets(List *sockets, TString message);
 #pragma region THREAD_COLLECTOR
 DWORD WINAPI thread_collector(LPVOID lpParam);
 void add_to_thread_list(List* thread_list, HANDLE handle, DWORD handle_id);
+void find_and_remove_terminated(List* thread_list);
+void print_all_threads(List* thread_list);
 #pragma endregion

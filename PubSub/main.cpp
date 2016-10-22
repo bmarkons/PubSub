@@ -50,10 +50,10 @@ int main()
 	getchar();
 
 	list_destroy(&topic_contents);
+	//list_destroy(&thread_list);
 	CloseHandle(accept_publisher_handle);
 	CloseHandle(accept_subscriber_handle);
 	
-	// TODO: Close all handles and sockets
 
 	return 0;
 }
