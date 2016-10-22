@@ -7,10 +7,8 @@
 #define INIT_BUFFER_SIZE 30
 #define HEADER_SIZE 1
 
-
-
 typedef struct _topic_content {
-	TString topic;
+	ByteArray topic;
 	List sockets;
 	TBuffer message_buffer;
 }TopicContent;
@@ -40,10 +38,10 @@ bool is_ready_for_send(SOCKET * socket, int *return_code);
 void start_listening(SOCKET* listenSocket, char* port);
 bool receive(SOCKET* socket, char** recvbuf);
 void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_handler);
-void send_to_subscriber(SOCKET * socket, TString message);
+void send_to_subscriber(SOCKET * socket, ByteArray message);
 bool send_nonblocking(SOCKET* socket, char* package, int data_size);
 bool send_all(SOCKET* socket, char *package, int data_size);
-char* make_data_package(TString message, int* data_size);
+char* make_data_package(ByteArray message, int* data_size);
 #pragma endregion
 
 
@@ -54,9 +52,9 @@ void free_thread(void * data);
 bool compare_node_with_topic(ListNode *listNode, void* param);
 bool sendIterator(ListNode *listNode, void* param);
 bool printID(void *param);
-ListNode* create_topic(Wrapper* wrapper, TString topic);
-TopicContent initializeTopic(TString topic);
-bool is_equal_string(TString s1, TString s2);
+ListNode* create_topic(Wrapper* wrapper, ByteArray topic);
+TopicContent initializeTopic(ByteArray topic);
+bool is_equal_string(ByteArray s1, ByteArray s2);
 #pragma endregion
 
 
@@ -64,9 +62,9 @@ bool is_equal_string(TString s1, TString s2);
 DWORD WINAPI accept_publisher(LPVOID lpParam);
 DWORD WINAPI listen_publisher(LPVOID lpParam);
 void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper);
-void unpack_message(char* recvbuf, TString* topic, TString* message);
-void push_message(TString topic, TString message, Wrapper* wrapper);
-bool push_try(TString topic, TString message, List* topic_contents);
+void unpack_message(char* recvbuf, ByteArray* topic, ByteArray* message);
+void push_message(ByteArray topic, ByteArray message, Wrapper* wrapper);
+bool push_try(ByteArray topic, ByteArray message, List* topic_contents);
 #pragma endregion
 
 
@@ -75,8 +73,8 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam);
 DWORD WINAPI listen_subscriber(LPVOID lpParam);
 DWORD WINAPI consume_messages(LPVOID lpParam);
 void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper);
-TString unpack_topic(char* recvbuf);
-void send_to_sockets(List *sockets, TString message);
+ByteArray unpack_topic(char* recvbuf);
+void send_to_sockets(List *sockets, ByteArray message);
 int clean_from_closed_sockets(List* sockets);
 #pragma endregion
 

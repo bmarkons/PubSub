@@ -7,10 +7,10 @@
 #define HEADER_SIZE 1
 #define MAX_INPUT_SIZE 100
 
-typedef struct _string {
-	int length;
-	char* text;
-}TString;
+typedef struct _byte_array {
+	int size;
+	char* array;
+}ByteArray;
 
 void InitializeWindowsSockets();
 void connectToServer(SOCKET* socket, char* ipv4_address, u_int port);

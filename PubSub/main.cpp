@@ -6,10 +6,10 @@
 void load_topics(Wrapper *wrapper) {
 
 	for (int i = 0; i < 10; i++) {
-		TString topic;
-		topic.length = 1;
-		topic.text = (char*)calloc(2, sizeof(char));
-		topic.text[0] = i + '0';
+		ByteArray topic;
+		topic.size = 1;
+		topic.array = (char*)calloc(2, sizeof(char));
+		topic.array[0] = i + '0';
 		create_topic(wrapper, topic);
 	}
 }

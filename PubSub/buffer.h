@@ -2,7 +2,7 @@
 
 #define MIN_BUFFER_SIZE 10
 #define MAX_BUFFER_SIZE 10240
-#define TYPE TString
+#define TYPE ByteArray
 
 typedef struct _tbuffer{
 	TYPE *buffer;

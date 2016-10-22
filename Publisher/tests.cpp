@@ -21,18 +21,21 @@ bool is_test() {
 }
 
 void start_1GB_test(SOCKET *socket) {
-	char *message = (char*)calloc(202, sizeof(char));
+	ByteArray message;
+	message.size = 200;
+	message.array = (char*)malloc(message.size * sizeof(char));
+	memset(message.array, 'a', message.size);
 
-	memset(message, 'a', 200);
-	message[201] = 'b';
-
-	char *topic = (char*)calloc(2, sizeof(char));
-	topic[0] = 1 + '0';
+	ByteArray topic;
+	topic.size = 1;
+	topic.array = (char*)malloc(topic.size * sizeof(char));
+	topic.array[0] = '1';
 
 	int num_of_msg = 1024 * 1024 * 5;
 
 	for (int i = 0; i < num_of_msg; i++) {
 		publish(message, topic, socket);
+		//Sleep(100);
 	}
 
 }

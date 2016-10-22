@@ -57,7 +57,15 @@ void publishing_loop(SOCKET* socket) {
 		input_topic(topic);
 		system("cls");
 
-		publish(message, topic, socket);
+		// make ByteArray structs
+		ByteArray message_bytes;
+		message_bytes.size = strlen(message);
+		message_bytes.array = message;
+		ByteArray topic_bytes;
+		topic_bytes.size = strlen(topic);
+		topic_bytes.array = topic;
+
+		publish(message_bytes, topic_bytes, socket);
 	}
 }
 
@@ -71,12 +79,9 @@ void input_topic(char* topic) {
 	scanf(" %s", topic);
 }
 
-void publish(char *message, char *topic, SOCKET* socket) {
-
-	int package_size;
-	char* package = make_package(message, topic, &package_size);
-
-	bool success = send_nonblocking(socket, package, package_size);
+void publish(ByteArray message, ByteArray topic, SOCKET* socket) {
+	ByteArray package = make_package(message, topic);
+	bool success = send_nonblocking(socket, package);
 	if (success) {
 		printf("Awesome! Message '%s' published on topic '%s'!\n", message, topic);
 	}
@@ -85,21 +90,20 @@ void publish(char *message, char *topic, SOCKET* socket) {
 	}
 }
 
-char* make_package(char *message, char *topic, int *package_size) {
+ByteArray make_package(ByteArray message, ByteArray topic) {
+	ByteArray package;
 
-	int topic_size = strlen(topic);
-	int message_size = strlen(message);
-	*package_size = 3 + topic_size + message_size;
-	char* data_package = (char*)malloc((*package_size) * sizeof(char));
+	package.size = PACKAGE_HEADER_SIZE + topic.size + message.size;
+	package.array = (char*)malloc(package.size * sizeof(char));
 
-	data_package[0] = ((*package_size) - 1);	// size of the rest of package
-	data_package[1] = topic_size;			// size of topic
-	data_package[2] = message_size;			// size of message
+	package.array[0] = package.size - 1;	// size of the rest of package
+	package.array[1] = topic.size;			// size of topic
+	package.array[2] = message.size;		// size of message
 
-	memcpy(data_package + 3, topic, topic_size);
-	memcpy(data_package + 3 + topic_size, message, message_size);
+	memcpy(package.array + PACKAGE_HEADER_SIZE, topic.array, topic.size);
+	memcpy(package.array + (PACKAGE_HEADER_SIZE + topic.size), message.array, message.size);
 
-	return data_package;
+	return package;
 }
 
 bool is_ready_for_send(SOCKET * socket) {
@@ -148,14 +152,13 @@ void set_nonblocking_mode(SOCKET * socket)
 	}
 }
 
-bool send_nonblocking(SOCKET* socket, char* package, int package_size) {
+bool send_nonblocking(SOCKET* socket, ByteArray package) {
 	set_nonblocking_mode(socket);
-
 	while (true) {
 		bool success;
 		if (is_ready_for_send(socket)) {
-			success = send_all(socket, package, package_size);
-			free(package);
+			success = send_all(socket, package);
+			free(package.array);
 			if (!success) {
 				closesocket(*socket);
 			}
@@ -164,13 +167,13 @@ bool send_nonblocking(SOCKET* socket, char* package, int package_size) {
 	}
 }
 
-bool send_all(SOCKET* socket, char *package, int package_size) {
+bool send_all(SOCKET* socket, ByteArray package) {
 	int iResult;
 	int total_sent = 0;
 	do {
-		iResult = send(*socket, package + total_sent, package_size - total_sent, 0);
+		iResult = send(*socket, package.array + total_sent, package.size - total_sent, 0);
 		total_sent += iResult;
-	} while (total_sent < package_size);
+	} while (total_sent < package.size);
 
 	return iResult == SOCKET_ERROR ? false : true;
 }
