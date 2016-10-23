@@ -17,7 +17,6 @@ typedef struct _list {
 	CRITICAL_SECTION cs;
 } List;
 
-
 typedef bool(*listIterator)(void*);
 typedef bool(*listCompare)(ListNode*, void*);
 typedef bool(*paramIterator)(ListNode*, void*);
@@ -34,4 +33,3 @@ void list_for_each(List *list, listIterator iterator);
 void list_head(List *list, void *element, bool removeFromList);
 void list_tail(List *list, void *element);
 void* list_find(List *list, void *element, listCompare comparator);
-
