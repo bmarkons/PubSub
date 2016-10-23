@@ -83,7 +83,9 @@ void publish(ByteArray message, ByteArray topic, SOCKET* socket) {
 	ByteArray package = make_package(message, topic);
 	bool success = send_nonblocking(socket, package);
 	if (success) {
-		printf("Awesome! Message '%s' published on topic '%s'!\n", message, topic);
+		if (TEST == 0) { //show only when is not a test
+			printf("Awesome! Message '%s' published on topic '%s'!\n", message.array, topic.array);
+		}
 	}
 	else {
 		printf("Error occured while publishing...\n");
