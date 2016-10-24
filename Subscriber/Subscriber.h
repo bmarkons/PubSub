@@ -26,5 +26,6 @@ void checkConfimation(SOCKET* socket);
 void set_nonblocking_mode(SOCKET* socket);
 bool is_ready_for_receive(SOCKET* socket);
 bool is_ready_for_send(SOCKET * socket);
+int recv_all(SOCKET* socket, char* recvbuff, int message_length);
 bool receive(SOCKET* socket, char** recvbuf);
 void subscribing(SOCKET*);

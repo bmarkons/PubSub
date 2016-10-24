@@ -43,12 +43,12 @@ void start_1GB_test(SOCKET *socket) {
 	float percent = 0;
 	for (int i = 0; i < num_of_msg; i++) {
 
-		percent = ((float)i / (float)num_of_msg) * 100;
+		percent = ((float)(i+1) / (float)num_of_msg) * 100;
 		system("cls");
 		printf("---TEST 1-1GB---\n");
 		printf(" - TO COMPLETE : %0.2f %%", percent);
 		publish(message, topic, socket);
-		Sleep(100);
+		//Sleep(100);
 	}
 
 }
@@ -57,21 +57,24 @@ void start_test_2(SOCKET *socket) {
 
 	for (int i = 0; i < 10; i++) {
 		Process::Start(String::Concat(ABSOLUTE_PATH, "Subscriber.exe"), String::Concat("127.0.0.1 ", System::Convert::ToString(i)));
-		Sleep(100);
+		Sleep(50);
 	}
 
 
 	ByteArray message;
-	message.size = 100;
+	message.size = 1000;
 	message.array = (char*)malloc(message.size * sizeof(char));
 	
 
 	ByteArray topic;
+	int num_of_msg = 100;
+	int percent;
+	for (int i = 0; i < num_of_msg; i++) {
+		percent = ((float)(i + 1) / (float)num_of_msg) * 100;
 
-	for (int i = 0; i < 100; i++) {
 		system("cls");
 		printf("---TEST 2---\n");
-		printf(" - TO COMPLETE : %d %%", i);
+		printf(" - TO COMPLETE : %d %%", percent);
 
 		for (int j = 0; j < 10; j++) {
 			memset(message.array, j + 'a', message.size);
@@ -79,7 +82,6 @@ void start_test_2(SOCKET *socket) {
 			topic.array = (char*)malloc(topic.size * sizeof(char));
 			topic.array[0] = j + '0';
 			publish(message, topic, socket);
-			Sleep(50);
 		}
 	}
 
