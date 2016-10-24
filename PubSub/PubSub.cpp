@@ -414,14 +414,16 @@ void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper) {
 
 	unpack_message(recvbuf, &topic, &message);
 	free(recvbuf);
-	push_message(topic, message, wrapper);
 
 	printf("[Publisher] New message on topic %s: [%s]\n", topic.array, message.array);
+	push_message(topic, message, wrapper);
+
+
 
 }
 
 void unpack_message(char* recvbuf, ByteArray *topic, ByteArray *message) {
-	memcpy(&(topic->size), recvbuf, sizeof(u_short));
+	memcpy(&topic->size, recvbuf, sizeof(u_short));
 	topic->array = (char*)calloc(1, (topic->size + 1) * sizeof(char));
 	memcpy(topic->array, recvbuf + 4, topic->size);
 
