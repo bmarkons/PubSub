@@ -24,7 +24,7 @@ typedef struct _wrapper {
 }Wrapper;
 
 typedef struct _param_struct {
-	SOCKET* socket;
+	SOCKET socket;
 	Wrapper* wrapper;
 }ParamStruct;
 

@@ -162,7 +162,7 @@ bool receive(SOCKET* socket, char** recvbuf) {
 			char header[MAIN_HEADER_SIZE];
 			iResult = recv(*socket, header, 2, 0);
 			memcpy(&message_length, header, sizeof(u_short));
-			*recvbuf = (char*)realloc(*recvbuf, (message_length + 1) * sizeof(char));
+			*recvbuf = (char*)calloc(message_length + 1, sizeof(char));
 			firstRecv = false;
 		}
 		else {
@@ -379,11 +379,11 @@ DWORD WINAPI accept_publisher(LPVOID lpParam) {
 		if (socket != INVALID_SOCKET)
 		{
 			printf("[Publisher] Connected.\n");
-			acceptedSocket = (SOCKET*)malloc(sizeof(SOCKET));
-			memcpy(acceptedSocket, &socket, sizeof(SOCKET));
+			//acceptedSocket = (SOCKET*)malloc(sizeof(SOCKET));
+			//memcpy(acceptedSocket, &socket, sizeof(SOCKET));
 			DWORD listen_publisher_id;
 			ParamStruct param;
-			param.socket = acceptedSocket;
+			param.socket = socket;
 			param.wrapper = wrapper;
 
 			HANDLE listen_publisher_handle = CreateThread(NULL, 0, &listen_publisher, &param, 0, &listen_publisher_id);
@@ -399,11 +399,11 @@ DWORD WINAPI accept_publisher(LPVOID lpParam) {
 
 DWORD WINAPI listen_publisher(LPVOID lpParam) {
 	ParamStruct* param = (ParamStruct*)lpParam;
-	SOCKET* socket = param->socket;
+	SOCKET socket = param->socket;
 
 	Wrapper* wrapper = param->wrapper;
 
-	wait_for_message(socket, wrapper, unpack_and_push);
+	wait_for_message(&socket, wrapper, unpack_and_push);
 
 	return 0;
 }
@@ -413,6 +413,7 @@ void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper) {
 	ByteArray message;
 
 	unpack_message(recvbuf, &topic, &message);
+	free(recvbuf);
 	push_message(topic, message, wrapper);
 
 	printf("[Publisher] New message on topic %s: [%s]\n", topic.array, message.array);
@@ -472,12 +473,12 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 		socket = accept(listenSocket, NULL, NULL);
 		if (socket != INVALID_SOCKET) {
 			printf("[Subscriber] Connected.\n");
-			acceptedSocket = (SOCKET*)malloc(sizeof(SOCKET));
-			memcpy(acceptedSocket, &socket, sizeof(SOCKET));
+			//acceptedSocket = (SOCKET*)malloc(sizeof(SOCKET));
+			//memcpy(acceptedSocket, &socket, sizeof(SOCKET));
 
 			DWORD listen_subscriber_id;
 			ParamStruct param;
-			param.socket = acceptedSocket;
+			param.socket = socket;
 			param.wrapper = wrapper;
 
 			HANDLE listen_subscriber_handle = CreateThread(NULL, 0, &listen_subscriber, &param, 0, &listen_subscriber_id);
@@ -493,10 +494,10 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 
 DWORD WINAPI listen_subscriber(LPVOID lpParam) {
 	ParamStruct* param = (ParamStruct*)lpParam;
-	SOCKET* socket = param->socket;
+	SOCKET socket = param->socket;
 	Wrapper* wrapper = param->wrapper;
 
-	wait_for_message(socket, wrapper, push_socket_on_topic);
+	wait_for_message(&socket, wrapper, push_socket_on_topic);
 
 	return 0;
 }
@@ -526,7 +527,9 @@ int clean_from_closed_sockets(List* sockets) {
 
 	int count = 0;//number of deleted sockets
 	EnterCriticalSection(&sockets->cs);
-
+	if (&sockets->cs == NULL) {
+		return 0;
+	}
 	ListNode *node = sockets->head;
 	ListNode *previous = NULL;
 	SOCKET *socket;
@@ -581,6 +584,7 @@ ByteArray unpack_topic(char* recvbuf) {
 void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper) {
 
 	ByteArray topic = unpack_topic(recvbuf);
+	free(recvbuf);
 	ListNode *finded_content = (ListNode*)list_find(wrapper->topic_contents, &topic, compare_node_with_topic);
 
 	if (finded_content == NULL) {
@@ -589,7 +593,6 @@ void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper) {
 
 	TopicContent *topic_content = (TopicContent*)finded_content->data;
 	list_append(&topic_content->sockets, socket);
-	free(socket);
 
 	printf("[Subscriber] New subscription on topic: %s.\n", topic.array);
 
@@ -656,6 +659,7 @@ void find_and_remove_terminated(List* thread_list) {
 
 			if (previous == NULL) {
 				thread_list->head = node->next;
+				free(node->data);
 				free(node);
 				thread_list->logicalLength--;
 				node = thread_list->head;
@@ -666,6 +670,7 @@ void find_and_remove_terminated(List* thread_list) {
 				if (thread_list->tail == node) {
 					thread_list->tail = previous;
 				}
+				free(node->data);
 				free(node);
 				thread_list->logicalLength--;
 				node = previous->next;

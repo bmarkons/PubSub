@@ -15,6 +15,7 @@ void list_new(List *list, int elementSize, freeFunction freeFn)
 
 void list_destroy(List *list)
 {
+	EnterCriticalSection(&list->cs);
 	ListNode *current;
 	while (list->head != NULL) {
 		current = list->head;
@@ -26,9 +27,10 @@ void list_destroy(List *list)
 
 		free(current->data);
 		free(current);
+		list->logicalLength--;
 	}
-
-	DeleteCriticalSection(&(list)->cs);
+	LeaveCriticalSection(&list->cs);
+	DeleteCriticalSection(&list->cs);
 
 }
 
