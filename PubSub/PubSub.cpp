@@ -267,7 +267,10 @@ ByteArray make_package(ByteArray message) {
 #pragma region LIST_FUNCTIONS
 
 void free_topic_content(void * data) {
-	free(*(TopicContent**)data);
+	TopicContent* topic_content = (TopicContent*)data;
+	list_destroy(&topic_content->sockets);
+	free(topic_content->message_buffer.buffer);
+	free(topic_content->topic.array);
 }
 
 void free_socket(void * data) {
@@ -275,7 +278,8 @@ void free_socket(void * data) {
 }
 
 void free_thread(void * data) {
-	free(*(TThread**)data);
+	TThread* thread = (TThread*)data;
+	CloseHandle(thread->handle);
 }
 
 bool compare_node_with_topic(ListNode* listNode, void* param) {
@@ -339,7 +343,7 @@ ListNode* create_topic(Wrapper* wrapper, ByteArray topic) {
 TopicContent initializeTopic(ByteArray topic) {
 	TopicContent new_topic;
 	new_topic.topic = topic;
-	list_new(&new_topic.sockets, sizeof(SOCKET), free_socket);
+	list_new(&new_topic.sockets, sizeof(SOCKET), NULL);
 	InitializeBuffer(&new_topic.message_buffer, INIT_BUFFER_SIZE);
 	return new_topic;
 }
@@ -416,7 +420,6 @@ void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper) {
 }
 
 void unpack_message(char* recvbuf, ByteArray *topic, ByteArray *message) {
-	u_short proba;
 	memcpy(&(topic->size), recvbuf, sizeof(u_short));
 	topic->array = (char*)calloc(1, (topic->size + 1) * sizeof(char));
 	memcpy(topic->array, recvbuf + 4, topic->size);
@@ -424,7 +427,6 @@ void unpack_message(char* recvbuf, ByteArray *topic, ByteArray *message) {
 	memcpy(&message->size, recvbuf + 2, sizeof(u_short));
 	message->array = (char*)calloc(1, (message->size + 1) * sizeof(char));
 	memcpy(message->array, recvbuf + 4 + topic->size, message->size);
-
 }
 
 void push_message(ByteArray topic, ByteArray message, Wrapper* wrapper) {
@@ -587,6 +589,7 @@ void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper) {
 
 	TopicContent *topic_content = (TopicContent*)finded_content->data;
 	list_append(&topic_content->sockets, socket);
+	free(socket);
 
 	printf("[Subscriber] New subscription on topic: %s.\n", topic.array);
 
