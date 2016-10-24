@@ -152,31 +152,44 @@ void start_listening(SOCKET* listenSocket, char* port) {
 
 }
 
-bool receive(SOCKET* socket, char** recvbuf) {
-	int iResult;
-	int total_received = 0;
-	bool firstRecv = true;
-	u_short message_length = 0;
-	do {
-		if (firstRecv) {
-			char header[MAIN_HEADER_SIZE];
-			iResult = recv(*socket, header, 2, 0);
-			memcpy(&message_length, header, sizeof(u_short));
-			*recvbuf = (char*)calloc(message_length + 1, sizeof(char));
-			firstRecv = false;
-		}
-		else {
-			iResult = recv(*socket, *recvbuf + total_received, DEFAULT_BUFLEN, 0);
-			total_received += iResult;
-		}
-		if (iResult < 0) {
-			break;
-		}
+int recv_all(SOCKET* socket, char* recvbuff, int message_length) {
 
+	int total_received = 0;
+
+	int iResult;
+
+	do {
+		iResult = recv(*socket, recvbuff + total_received, message_length-total_received, 0);
+		if (iResult < 0) {
+			return iResult;
+		}
+		total_received += iResult;
 	} while (total_received < message_length);
 
-	(*recvbuf)[total_received] = NULL;  //set the end of the string
-	return iResult < 0 ? false : true;
+	return iResult;
+}
+
+bool receive(SOCKET* socket, char** recvbuf) {
+	int iResult;
+	u_short message_length = 0;
+
+	char header[MAIN_HEADER_SIZE];
+	iResult = recv_all(socket, header, MAIN_HEADER_SIZE);
+	memcpy(&message_length, header, sizeof(u_short));
+
+	if (iResult < 0) {
+		return false;
+	}
+
+	*recvbuf = (char*)calloc(message_length + 1, sizeof(char));
+	iResult = recv_all(socket, *recvbuf, message_length);
+
+	if (iResult < 0) {
+		free(*recvbuf);
+		return false;
+	}
+
+	return true;
 }
 
 void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_handler) {
@@ -198,7 +211,6 @@ void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_
 			}
 		}
 	} while (1);
-	free(recvbuf);
 }
 
 void send_to_subscriber(SOCKET * socket, ByteArray message)
@@ -279,6 +291,7 @@ void free_socket(void * data) {
 
 void free_thread(void * data) {
 	TThread* thread = (TThread*)data;
+	TerminateThread(thread->handle, 0);
 	CloseHandle(thread->handle);
 }
 
@@ -528,6 +541,9 @@ DWORD WINAPI consume_messages(LPVOID lpParam) {
 int clean_from_closed_sockets(List* sockets) {
 
 	int count = 0;//number of deleted sockets
+	if (&sockets->cs == NULL) {
+		return 0;
+	}
 	EnterCriticalSection(&sockets->cs);
 	if (&sockets->cs == NULL) {
 		return 0;
@@ -623,16 +639,21 @@ void send_to_sockets(List *sockets, ByteArray message) {
 DWORD WINAPI thread_collector(LPVOID lpParam) {
 
 	Wrapper *wrapper = (Wrapper*)lpParam;
-
+	int result;
 	while (true) {
+
+		result = WaitForSingleObject(GetCurrentThread(), 0);
+		if (result == WAIT_OBJECT_0) {
+			CloseHandle(GetCurrentThread());
+			break;
+		}
 		/*	printf("\nBefore");
 			print_all_threads(wrapper->thread_list);*/
-
 		find_and_remove_terminated(wrapper->thread_list);
 
 		//printf("\nAfter");
 		//print_all_threads(wrapper->thread_list);
-		Sleep(2000);
+		Sleep(1000);
 	}
 	return 0;
 }
@@ -645,6 +666,7 @@ void add_to_thread_list(List* thread_list, HANDLE handle, DWORD handle_id) {
 }
 
 void find_and_remove_terminated(List* thread_list) {
+
 	EnterCriticalSection(&thread_list->cs);
 
 	ListNode *node = thread_list->head;
