@@ -37,6 +37,7 @@ bool is_ready_for_receive(SOCKET* socket);
 bool is_ready_for_send(SOCKET * socket, int *return_code);
 void start_listening(SOCKET* listenSocket, char* port);
 bool receive(SOCKET* socket, char** recvbuf);
+int recv_all(SOCKET* socket, char* recvbuff, int message_length);
 void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_handler);
 void send_to_subscriber(SOCKET * socket, ByteArray message);
 bool send_nonblocking(SOCKET* socket, ByteArray package);

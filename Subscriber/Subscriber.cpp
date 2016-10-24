@@ -232,30 +232,45 @@ bool is_ready_for_send(SOCKET * socket) {
 	return true;
 }
 
-bool receive(SOCKET* socket, char** recvbuf) {
-	u_int message_length = 0;
-	int iResult;
+int recv_all(SOCKET* socket, char* recvbuff, int message_length) {
+
 	int total_received = 0;
-	bool firstRecv = true;
+
+	int iResult;
+
 	do {
-		if (firstRecv) {
-			char header[MAIN_HEADER_SIZE];
-			iResult = recv(*socket, header, MAIN_HEADER_SIZE, 0);
-			memcpy(&message_length, header, sizeof(u_short));
-			*recvbuf = (char*)calloc(message_length + 1, sizeof(char));
-			firstRecv = false;
-		}
-		else {
-			iResult = recv(*socket, *recvbuf + total_received, DEFAULT_BUFLEN, 0);
-			total_received += iResult;
-		}
+		iResult = recv(*socket, recvbuff + total_received, message_length - total_received, 0);
 		if (iResult < 0) {
-			break;
+			return iResult;
 		}
+		total_received += iResult;
 	} while (total_received < message_length);
 
-	(*recvbuf)[total_received] = NULL;  //set the end of the string
-	return iResult < 0 ? false : true;
+	return iResult;
+}
+
+bool receive(SOCKET* socket, char** recvbuf) {
+
+	int iResult;
+	u_short message_length = 0;
+
+	char header[MAIN_HEADER_SIZE];
+	iResult = recv_all(socket, header, MAIN_HEADER_SIZE);
+	memcpy(&message_length, header, sizeof(u_short));
+
+	if (iResult < 0) {
+		return false;
+	}
+
+	*recvbuf = (char*)calloc(message_length + 1, sizeof(char));
+	iResult = recv_all(socket, *recvbuf, message_length);
+
+	if (iResult < 0) {
+		free(*recvbuf);
+		return false;
+	}
+
+	return true;
 }
 
 void subscribing(SOCKET* connectSocket) {

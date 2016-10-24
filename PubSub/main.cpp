@@ -50,7 +50,10 @@ int main()
 
 	getchar();
 
+	TerminateThread(thread_collector_handle, 0); 
 	CloseHandle(thread_collector_handle);
+	//ExitThread(thread_collector_id);
+
 	list_destroy(&thread_list);
 	list_destroy(&topic_contents);
 
