@@ -119,9 +119,17 @@ bool send_nonblocking(SOCKET* socket, ByteArray package) {
 bool send_all(SOCKET* socket, ByteArray package) {
 	int iResult;
 	int total_sent = 0;
+	int byte_to_send;
 	do {
-		iResult = send(*socket, package.array + total_sent, package.size - total_sent, 0);
+		byte_to_send = package.size - total_sent;
+		/*if (byte_to_send > DEFAULT_BUFLEN) {
+			byte_to_send = DEFAULT_BUFLEN;
+		}*/
+		iResult = send(*socket, package.array + total_sent, byte_to_send, 0);
 		total_sent += iResult;
+		if (iResult < 0) {
+			return false;
+		}
 	} while (total_sent < package.size);
 
 	return iResult == SOCKET_ERROR ? false : true;
@@ -137,7 +145,7 @@ void wait_for_message(SOCKET * socket, void* param, bool single_receive, message
 		int ready = is_ready_for_receive(socket);
 		if (ready > 0) {
 			if (receive(socket, &recvbuf)) {
-				message_handler(socket, recvbuf, NULL);
+				message_handler(socket, recvbuf, param);
 			}
 			else {
 				printf("Error occured while receiving message from socket.\n");
@@ -211,10 +219,15 @@ int recv_all(SOCKET* socket, char* recvbuff, int message_length) {
 	int total_received = 0;
 
 	int iResult;
-
+	int byte_to_receive;
 	do {
-		iResult = recv(*socket, recvbuff + total_received, message_length - total_received, 0);
+		byte_to_receive = message_length - total_received;
+		if (byte_to_receive > DEFAULT_BUFLEN) {
+			byte_to_receive = DEFAULT_BUFLEN;
+		}
+		iResult = recv(*socket, recvbuff + total_received, byte_to_receive, 0);
 		if (iResult < 0) {
+			printf("Unable to connect to server. Error code: %d\n", WSAGetLastError());
 			return iResult;
 		}
 		total_received += iResult;

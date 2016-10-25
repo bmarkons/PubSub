@@ -3,13 +3,13 @@
 #define SUBSCRIBE_SUCCESS 5
 #define SUBSCRIBE_FAIL 6
 #define SERVER_SLEEP_TIME 50
-#define DEFAULT_BUFLEN 100
+#define DEFAULT_BUFLEN 1024
 #define PACKAGE_HEADER_SIZE 6
 #define MAIN_HEADER_SIZE 2
 #define MAX_INPUT_SIZE 100
 
 typedef struct _byte_array {
-	int size;
+	u_short size;
 	char* array;
 }ByteArray;
 

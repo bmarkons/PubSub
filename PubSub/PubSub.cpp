@@ -149,17 +149,17 @@ void unpack_and_push(SOCKET* socket, char* recvbuf, void* param) {
 	unpack_message(recvbuf, &topic, &message);
 	free(recvbuf);
 
-	printf("[Publisher] New message on topic %s: [%s]\n", topic.array, message.array);
+	//printf("[Publisher] New message on topic %s: [%s]\n", topic.array, message.array);
 	push_message(topic, message, wrapper);
 }
 
 void unpack_message(char* recvbuf, ByteArray *topic, ByteArray *message) {
 	memcpy(&topic->size, recvbuf, sizeof(u_short));
-	topic->array = (char*)calloc(1, (topic->size + 1) * sizeof(char));
+	topic->array = (char*)calloc( topic->size + 1, sizeof(char));
 	memcpy(topic->array, recvbuf + 4, topic->size);
 
 	memcpy(&message->size, recvbuf + 2, sizeof(u_short));
-	message->array = (char*)calloc(1, (message->size + 1) * sizeof(char));
+	message->array = (char*)calloc(message->size + 1 , sizeof(char));
 	memcpy(message->array, recvbuf + 4 + topic->size, message->size);
 }
 
@@ -232,15 +232,24 @@ DWORD WINAPI consume_messages(LPVOID lpParam) {
 	TopicContent *topic_content = (TopicContent*)lpParam;
 	ByteArray message;
 	int num_of_removed = 0;
+	clock_t start = clock();
+	clock_t now;
+	float delta_time = 0;
 	while (true) {
-		num_of_removed = clean_from_closed_sockets(&topic_content->sockets);
+		now = clock();
+		delta_time = (float)(now - start) / CLOCKS_PER_SEC;
+		num_of_removed = 0;
+		if (delta_time > 2) {
+			num_of_removed = clean_from_closed_sockets(&topic_content->sockets);
+			start = now;
+		}
 
 		if (num_of_removed != 0)
 			printf("Removed %d closed socket on %s topic\n", num_of_removed, topic_content->topic.array);
 
 		bool success = Pop(&topic_content->message_buffer, &message);
 		if (success) {
-			printf("Sending message [%s] to all subscribers on topic '%s'...\n", message.array, topic_content->topic.array);
+			//printf("Sending message [%s] to all subscribers on topic '%s'...\n", message.array, topic_content->topic.array);
 			send_to_sockets(&topic_content->sockets, message);
 			free(message.array);
 		}
@@ -350,7 +359,7 @@ void send_to_subscriber(SOCKET * socket, ByteArray message)
 	ByteArray package = make_package(message);
 	bool success = send_nonblocking(socket, package);
 	if (success) {
-		printf("--> Message sent to subcriber : %d\n", *socket);
+		//printf("--> Message sent to subcriber : %d\n", *socket);
 	}
 	else {
 		printf("xxx Error occured while sending to subscriber %d.\n", *socket);
