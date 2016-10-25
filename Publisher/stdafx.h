@@ -9,6 +9,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <conio.h>
+#include "Common.h"
 #include "Publisher.h"
 #include "tests.h"
-

@@ -1,4 +1,4 @@
-#include "stdafx.h"
+//#include "stdafx.h"
 
 #define MIN_BUFFER_SIZE 10
 #define MAX_BUFFER_SIZE 10240

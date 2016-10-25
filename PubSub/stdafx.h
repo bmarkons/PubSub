@@ -11,13 +11,8 @@
 #include <stdio.h>
 #include <conio.h>
 #include <assert.h>
-
-typedef struct _byte_array {
-	u_short size;
-	char* array;
-}ByteArray;
-
 #include "list.h"
+#include "Common.h"
 #include "buffer.h"
 #include "PubSub.h"
 
