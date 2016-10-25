@@ -13,7 +13,7 @@ bool Push(TBuffer *buffer, TYPE data) {
 			LeaveCriticalSection(&buffer->cs);
 			return false;
 		}
-		printf("\nExpanding buffer!");
+		//printf("\nExpanding buffer!");
 		ExpandBuffer(buffer);
 	}
 
@@ -41,7 +41,7 @@ bool Pop(TBuffer *buffer, TYPE *retVal) {
 	if (usageInPercent < 25 && buffer->bufferSize > MIN_BUFFER_SIZE) {
 		//when buffer is under 25% full and bufferSize bigger than minimal value of bufferSize
 		//printf("\nBuffer is %d%% full,buffer size: %d", usageInPercent, buffer->bufferSize);
-		printf("\nBuffer is narrowing..");
+		//printf("\nBuffer is narrowing..");
 		NarrowBuffer(buffer);
 	}
 

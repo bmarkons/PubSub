@@ -30,7 +30,7 @@ void publishing_loop(SOCKET* socket) {
 	}
 }
 
-void publish(ByteArray message, ByteArray topic, SOCKET* socket) {
+bool publish(ByteArray message, ByteArray topic, SOCKET* socket) {
 	ByteArray package = make_package(message, topic);
 	bool success = send_nonblocking(socket, package);
 	if (success) {
@@ -41,6 +41,7 @@ void publish(ByteArray message, ByteArray topic, SOCKET* socket) {
 	else {
 		printf("Error occured while publishing...\n");
 	}
+	return success;
 }
 
 ByteArray make_package(ByteArray message, ByteArray topic) {

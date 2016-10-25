@@ -8,8 +8,8 @@ using namespace System;
 using namespace System::Diagnostics;
 using namespace System::ComponentModel;
 
-#define ABSOLUTE_PATH "C:\\Users\\Srdjan\\Documents\\GitHub\\PubSub\\x64\\Debug\\"
-//#define ABSOLUTE_PATH "D:\\Fakultet\\BLOK 1\\PubSub\\x64\\Debug\\"
+//#define ABSOLUTE_PATH "C:\\Users\\Srdjan\\Documents\\GitHub\\PubSub\\x64\\Debug\\"
+#define ABSOLUTE_PATH "D:\\Fakultet\\BLOK 1\\PubSub\\x64\\Debug\\"
 
 bool is_test() {
 
@@ -81,10 +81,10 @@ void start_test_2(SOCKET *socket) {
 	ByteArray message;
 	message.size = 1000;
 	message.array = (char*)malloc(message.size * sizeof(char));
-	
+
 
 	ByteArray topic;
-	int num_of_msg = 100;
+	int num_of_msg = 1024 * 1024;
 	int percent;
 	for (int i = 0; i < num_of_msg; i++) {
 		percent = ((float)(i + 1) / (float)num_of_msg) * 100;
@@ -98,7 +98,10 @@ void start_test_2(SOCKET *socket) {
 			topic.size = 1;
 			topic.array = (char*)malloc(topic.size * sizeof(char));
 			topic.array[0] = j + '0';
-			publish(message, topic, socket);
+			bool success = publish(message, topic, socket);
+			if (!success) {
+				return;
+			}
 		}
 	}
 
