@@ -27,26 +27,6 @@ ByteArray make_package(ByteArray topic) {
 	return package;
 }
 
-void print_received_message(SOCKET* socket, char* recvbuf, void* param) {
-	int message_length = strlen(recvbuf + 2);
-	if (message_length < 20) {
-		printf("Message received from client: %s.\n", recvbuf + 2);
-	}
-	else {
-		printf("Received %d bytes\n", message_length);
-	}
-}
-
-void print_subscribe_confirmation(SOCKET* socket, char* recvbuf, void* param) {
-	if (recvbuf[2] == SUBSCRIBE_SUCCESS) {
-		printf("SUCCESS!\n");
-	}
-	else {
-		printf("FAIL!\n");
-		closesocket(*socket);
-	}
-}
-
 void checkConfimation(SOCKET *socket) {
 	wait_for_message(socket, NULL, true, print_subscribe_confirmation);
 }
@@ -70,4 +50,19 @@ void subscribing(SOCKET* connectSocket) {
 		printf("Continue with subscribing on topic? [y/n]");
 		scanf(" %c", &command);
 	} while (command != 'n');
+}
+
+void print_received_message(SOCKET* socket, char* recvbuf, void* param) {
+	printf("Message received from client: %s.\n", recvbuf + 2);
+	printf("%d\n", strlen(recvbuf + 2));
+}
+
+void print_subscribe_confirmation(SOCKET* socket, char* recvbuf, void* param) {
+	if (recvbuf[2] == SUBSCRIBE_SUCCESS) {
+		printf("SUCCESS!\n");
+	}
+	else {
+		printf("FAIL!\n");
+		closesocket(*socket);
+	}
 }
