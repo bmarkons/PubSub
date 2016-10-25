@@ -2,6 +2,8 @@
 
 #define INIT_BUFFER_SIZE 30
 #define MAIN_HEADER_SIZE 2
+#define THREAD_COLLECTOR_SLEEP 2000
+#define CONSUME_MESSAGES_SLEEP 50
 
 typedef struct _topic_content {
 	ByteArray topic;

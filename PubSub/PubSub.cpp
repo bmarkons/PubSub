@@ -155,11 +155,11 @@ void unpack_and_push(SOCKET* socket, char* recvbuf, void* param) {
 
 void unpack_message(char* recvbuf, ByteArray *topic, ByteArray *message) {
 	memcpy(&topic->size, recvbuf, sizeof(u_short));
-	topic->array = (char*)calloc( topic->size + 1, sizeof(char));
+	topic->array = (char*)calloc(topic->size + 1, sizeof(char));
 	memcpy(topic->array, recvbuf + 4, topic->size);
 
 	memcpy(&message->size, recvbuf + 2, sizeof(u_short));
-	message->array = (char*)calloc(message->size + 1 , sizeof(char));
+	message->array = (char*)calloc(message->size + 1, sizeof(char));
 	memcpy(message->array, recvbuf + 4 + topic->size, message->size);
 }
 
@@ -180,7 +180,14 @@ bool push_try(ByteArray topic, ByteArray message, List* topic_contents) {
 	}
 
 	TopicContent* topic_content = (TopicContent*)node->data;
-	Push(&topic_content->message_buffer, message);
+	
+	bool success = false;
+	while (!success) {
+		success = Push(&topic_content->message_buffer, message);
+		if (!success) {
+			Sleep(DEFAULT_SLEEP_TIME);
+		}
+	}
 
 	return true;
 }
@@ -223,7 +230,7 @@ DWORD WINAPI listen_subscriber(LPVOID lpParam) {
 	SOCKET socket = param->socket;
 	void* wrapper = param->wrapper;
 
-	wait_for_message(&socket, wrapper, false, push_socket_on_topic);
+	wait_for_message(&socket, wrapper, true, push_socket_on_topic);
 
 	return 0;
 }
@@ -253,7 +260,10 @@ DWORD WINAPI consume_messages(LPVOID lpParam) {
 			send_to_sockets(&topic_content->sockets, message);
 			free(message.array);
 		}
-		Sleep(SERVER_SLEEP_TIME);
+
+		if (CONSUME_MESSAGES_SLEEP != 0) {
+			Sleep(CONSUME_MESSAGES_SLEEP);
+		}
 	}
 	return 0;
 }
@@ -387,7 +397,7 @@ DWORD WINAPI thread_collector(LPVOID lpParam) {
 
 		//printf("\nAfter");
 		//print_all_threads(wrapper->thread_list);
-		Sleep(1000);
+		Sleep(THREAD_COLLECTOR_SLEEP);
 	}
 	return 0;
 }
