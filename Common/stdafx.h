@@ -20,3 +20,4 @@
 #include <conio.h>
 #include <assert.h>
 #include "Common.h"
+#include "buffer.h"

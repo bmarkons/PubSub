@@ -2,13 +2,14 @@
 #include "stdafx.h"
 #using <System.dll>
 #include <direct.h>
+#include <time.h>
 
 using namespace System;
 using namespace System::Diagnostics;
 using namespace System::ComponentModel;
 
-//#define ABSOLUTE_PATH "C:\\Users\\Srdjan\\Documents\\GitHub\\PubSub\\x64\\Debug\\"
-#define ABSOLUTE_PATH "D:\\Fakultet\\BLOK 1\\PubSub\\x64\\Debug\\"
+#define ABSOLUTE_PATH "C:\\Users\\Srdjan\\Documents\\GitHub\\PubSub\\x64\\Debug\\"
+//#define ABSOLUTE_PATH "D:\\Fakultet\\BLOK 1\\PubSub\\x64\\Debug\\"
 
 bool is_test() {
 
@@ -42,14 +43,29 @@ void start_1GB_test(SOCKET *socket) {
 
 	int num_of_msg = 1024 * 1024;
 	float percent = 0;
-	for (int i = 0; i < num_of_msg; i++) {
 
-		percent = ((float)(i+1) / (float)num_of_msg) * 100;
+	clock_t begin = clock();
+	int min, sec;
+	float total_sec;
+	float speed;
+
+	for (int i = 0; i < num_of_msg; i++) {
+		total_sec = (float)(clock() - begin) / CLOCKS_PER_SEC;
+		speed = (float)(i + 1) / total_sec;
+
+		min = total_sec / 60;
+		sec = (int)total_sec % 60;
+
+		percent = ((float)(i + 1) / (float)num_of_msg) * 100;
 		system("cls");
 		printf("---TEST 1-1GB---\n");
-		printf(" - TO COMPLETE : %0.2f %%", percent);
+		printf(" - TO COMPLETE : %0.2f %%\n", percent);
+		printf(" - ELAPSED TIME: %d:%d\n", min, sec);
+		printf(" - SPEED: %0.2f KB/s\n", speed);
+		printf(" - SENT: %0.2f MB\n", (float)(i + 1) / 1024);
+
+
 		publish(message, topic, socket);
-		//Sleep(100);
 	}
 
 }
