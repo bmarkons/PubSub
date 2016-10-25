@@ -1,6 +1,6 @@
 #pragma once
 
-#define TEST 0
+#define TEST 1
 
 bool is_test();
 void start_1GB_test(SOCKET *socket);

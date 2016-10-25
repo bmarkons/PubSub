@@ -5,7 +5,7 @@
 
 void load_topics(Wrapper *wrapper) {
 
-	for (int i = 0; i < 10; i++) {
+	for (int i = 1; i < 2; i++) {
 		ByteArray topic;
 		topic.size = 1;
 		topic.array = (char*)calloc(2, sizeof(char));
@@ -56,8 +56,10 @@ int main()
 	closesocket(accepting_publisher);
 	closesocket(accepting_subscriber);
 
+
 	TerminateThread(thread_collector_handle, 0);
 	CloseHandle(thread_collector_handle);
+	
 
 	list_destroy(&thread_list);
 	list_destroy(&topic_contents);
