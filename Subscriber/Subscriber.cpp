@@ -40,7 +40,7 @@ void disconnect(SOCKET* socket) {
 }
 
 void input_topic(char* topic) {
-	printf("Input topic (one character) : ");
+	printf("Input topic: ");
 	scanf(" %s", topic);
 }
 
@@ -97,22 +97,18 @@ ByteArray make_package(ByteArray topic) {
 	return package;
 }
 
-void wait_for_message(SOCKET * socket, unsigned buffer_size)
+void wait_for_message(SOCKET * socket, void* param, bool single_receive, messageHandler message_handler)
 {
-	int iResult;
 	char *recvbuf = NULL;
-	//set parameter for NonBlocking mode
 	set_nonblocking_mode(socket);
 
 	printf("Waiting for messages...\n");
 	do
 	{
-		bool success;
-		if (is_ready_for_receive(socket)) {
-			success = receive(socket, &recvbuf);
-			if (success) {
-				printf("Message received from client: %s.\n", recvbuf + 2);
-				printf("%d\n", strlen(recvbuf + 2));
+		int ready = is_ready_for_receive(socket);
+		if (ready > 0) {
+			if (receive(socket, &recvbuf)) {
+				message_handler(socket, recvbuf, NULL);
 			}
 			else {
 				printf("Error occured while receiving message from socket.\n");
@@ -120,38 +116,29 @@ void wait_for_message(SOCKET * socket, unsigned buffer_size)
 				break;
 			}
 		}
-	} while (true);
+		else if (ready < 0) {
+			break;
+		}
+	} while (!single_receive);
+}
+
+void print_received_message(SOCKET* socket, char* recvbuf, void* param) {
+	printf("Message received from client: %s.\n", recvbuf + 2);
+	printf("%d\n", strlen(recvbuf + 2));
+}
+
+void print_subscribe_confirmation(SOCKET* socket, char* recvbuf, void* param) {
+	if (recvbuf[2] == SUBSCRIBE_SUCCESS) {
+		printf("SUCCESS!\n");
+	}
+	else {
+		printf("FAIL!\n");
+		closesocket(*socket);
+	}
 }
 
 void checkConfimation(SOCKET *socket) {
-	int iResult;
-	char *recvbuf = NULL;
-	//set parameter for NonBlocking mode
-	set_nonblocking_mode(socket);
-
-	while (true)
-	{
-		bool success;
-		if (is_ready_for_receive(socket)) {
-			success = receive(socket, &recvbuf);
-			if (success) {
-				if (recvbuf[2] == SUBSCRIBE_SUCCESS) {
-					printf("SUCCESS!\n");
-				}
-				else {
-					printf("FAIL!\n");
-					closesocket(*socket);
-				}
-				break;
-			}
-			else {
-				printf("recv failed with error while subscribing: %d\n.\n", WSAGetLastError());
-				closesocket(*socket);
-				break;
-			}
-		}
-	}
-
+	wait_for_message(socket, NULL, true, print_subscribe_confirmation);
 }
 
 void set_nonblocking_mode(SOCKET * socket)
@@ -168,36 +155,27 @@ void set_nonblocking_mode(SOCKET * socket)
 	}
 }
 
-bool is_ready_for_receive(SOCKET * socket) {
-	// Initialize select parameters
+int is_ready_for_receive(SOCKET * socket) {
 	FD_SET set;
 	timeval timeVal;
 
 	FD_ZERO(&set);
-	// Add socket we will wait to read from
 	FD_SET(*socket, &set);
 
-	// Set timeouts to zero since we want select to return
-	// instantaneously
 	timeVal.tv_sec = 0;
 	timeVal.tv_usec = 0;
 
-	int iResult = select(0 /* ignored */, &set, NULL, NULL, &timeVal);
-	// lets check if there was an error during select
+	int iResult = select(0, &set, NULL, NULL, &timeVal);
+
 	if (iResult == SOCKET_ERROR)
 	{
 		fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
-		return false;
 	}
-	// now, lets check if there are any sockets ready
-	if (iResult == 0)
-	{
-		// there are no ready sockets, sleep for a while and check again
+	else if (iResult == 0) {
 		Sleep(SERVER_SLEEP_TIME);
-		return false;
 	}
 
-	return true;
+	return iResult;
 }
 
 bool is_ready_for_send(SOCKET * socket) {

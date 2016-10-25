@@ -12,6 +12,8 @@ typedef struct _byte_array {
 	char* array;
 }ByteArray;
 
+typedef void(*messageHandler)(SOCKET*, char*, void*);
+
 void InitializeWindowsSockets();
 void connectToServer(SOCKET* socket, char* ipv4_address, u_int port);
 void disconnect(SOCKET*);
@@ -21,11 +23,12 @@ void subscribe(SOCKET* socket, ByteArray topic);
 bool send_nonblocking(SOCKET* socket, ByteArray package);
 bool send_all(SOCKET* socket, ByteArray package);
 ByteArray make_package(ByteArray topic);
-void wait_for_message(SOCKET* socket, unsigned buffer_size);
+void wait_for_message(SOCKET* socket, void* param, bool single_receive, messageHandler message_handler);
 void checkConfimation(SOCKET* socket);
 void set_nonblocking_mode(SOCKET* socket);
-bool is_ready_for_receive(SOCKET* socket);
+int is_ready_for_receive(SOCKET* socket);
 bool is_ready_for_send(SOCKET * socket);
 int recv_all(SOCKET* socket, char* recvbuff, int message_length);
 bool receive(SOCKET* socket, char** recvbuf);
 void subscribing(SOCKET*);
+void print_received_message(SOCKET* socket, char* recvbuf, void* param);

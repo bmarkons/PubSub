@@ -7,7 +7,8 @@ using namespace System;
 using namespace System::Diagnostics;
 using namespace System::ComponentModel;
 
-#define ABSOLUTE_PATH "C:\\Users\\Srdjan\\Documents\\GitHub\\PubSub\\x64\\Debug\\"
+//#define ABSOLUTE_PATH "C:\\Users\\Srdjan\\Documents\\GitHub\\PubSub\\x64\\Debug\\"
+#define ABSOLUTE_PATH "D:\\Fakultet\\BLOK 1\\PubSub\\x64\\Debug\\"
 
 bool is_test() {
 

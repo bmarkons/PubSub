@@ -26,7 +26,7 @@ int main(int argc, char **argv)
 	else {
 		subscribing(&connectSocket);
 	}
-	wait_for_message(&connectSocket, DEFAULT_BUFLEN);
+	wait_for_message(&connectSocket, NULL, false, print_received_message);
 
 	disconnect(&connectSocket);
 	return 0;

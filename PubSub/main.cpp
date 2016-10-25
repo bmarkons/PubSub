@@ -46,13 +46,11 @@ int main()
 
 	/*look for terminated thread and remove them*/
 	thread_collector_handle = CreateThread(NULL, 0, &thread_collector, &wrapper, 0, &thread_collector_id);
-	//add_to_thread_list(wrapper.thread_list, thread_collector_handle, thread_collector_id);
 
 	getchar();
 
 	TerminateThread(thread_collector_handle, 0); 
 	CloseHandle(thread_collector_handle);
-	//ExitThread(thread_collector_id);
 
 	list_destroy(&thread_list);
 	list_destroy(&topic_contents);

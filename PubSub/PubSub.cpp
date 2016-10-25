@@ -159,7 +159,7 @@ int recv_all(SOCKET* socket, char* recvbuff, int message_length) {
 	int iResult;
 
 	do {
-		iResult = recv(*socket, recvbuff + total_received, message_length-total_received, 0);
+		iResult = recv(*socket, recvbuff + total_received, message_length - total_received, 0);
 		if (iResult < 0) {
 			return iResult;
 		}
@@ -192,17 +192,16 @@ bool receive(SOCKET* socket, char** recvbuf) {
 	return true;
 }
 
-void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_handler) {
+void wait_for_message(SOCKET * socket, void* param, bool single_receive, messageHandler message_handler) {
 	set_nonblocking_mode(socket);
 	char *recvbuf = NULL;
 
 	do
 	{
-		bool success;
-		if (is_ready_for_receive(socket)) {
-			success = receive(socket, &recvbuf);
-			if (success) {
-				message_handler(recvbuf, socket, wrapper);
+		int ready = is_ready_for_receive(socket);
+		if (ready > 0) {
+			if (receive(socket, &recvbuf)) {
+				message_handler(recvbuf, socket, param);
 			}
 			else {
 				printf("Error occured while receiving message from socket.\n");
@@ -210,7 +209,10 @@ void wait_for_message(SOCKET * socket, Wrapper* wrapper, messageHandler message_
 				break;
 			}
 		}
-	} while (1);
+		else if (ready < 0) {
+			break;
+		}
+	} while (true);
 }
 
 void send_to_subscriber(SOCKET * socket, ByteArray message)
@@ -231,7 +233,6 @@ bool send_nonblocking(SOCKET* socket, ByteArray package) {
 	bool success;
 	int return_code;
 	while (true) {
-
 		if (is_ready_for_send(socket, &return_code)) {
 			success = send_all(socket, package);
 			free(package.array);
@@ -414,14 +415,16 @@ DWORD WINAPI listen_publisher(LPVOID lpParam) {
 	ParamStruct* param = (ParamStruct*)lpParam;
 	SOCKET socket = param->socket;
 
-	Wrapper* wrapper = param->wrapper;
+	void* wrapper = param->wrapper;
 
-	wait_for_message(&socket, wrapper, unpack_and_push);
+	wait_for_message(&socket, wrapper, false, unpack_and_push);
 
 	return 0;
 }
 
-void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper) {
+void unpack_and_push(char* recvbuf, SOCKET* socket, void* param) {
+	Wrapper* wrapper = (Wrapper*)param;
+
 	ByteArray topic;
 	ByteArray message;
 
@@ -430,9 +433,6 @@ void unpack_and_push(char* recvbuf, SOCKET* socket, Wrapper* wrapper) {
 
 	printf("[Publisher] New message on topic %s: [%s]\n", topic.array, message.array);
 	push_message(topic, message, wrapper);
-
-
-
 }
 
 void unpack_message(char* recvbuf, ByteArray *topic, ByteArray *message) {
@@ -510,9 +510,9 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 DWORD WINAPI listen_subscriber(LPVOID lpParam) {
 	ParamStruct* param = (ParamStruct*)lpParam;
 	SOCKET socket = param->socket;
-	Wrapper* wrapper = param->wrapper;
+	void* wrapper = param->wrapper;
 
-	wait_for_message(&socket, wrapper, push_socket_on_topic);
+	wait_for_message(&socket, wrapper, false, push_socket_on_topic);
 
 	return 0;
 }
@@ -599,7 +599,8 @@ ByteArray unpack_topic(char* recvbuf) {
 	return topic;
 }
 
-void push_socket_on_topic(char* recvbuf, SOCKET *socket, Wrapper *wrapper) {
+void push_socket_on_topic(char* recvbuf, SOCKET *socket, void* param) {
+	Wrapper* wrapper = (Wrapper*)param;
 
 	ByteArray topic = unpack_topic(recvbuf);
 	free(recvbuf);
