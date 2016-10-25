@@ -28,8 +28,13 @@ ByteArray make_package(ByteArray topic) {
 }
 
 void print_received_message(SOCKET* socket, char* recvbuf, void* param) {
-	printf("Message received from client: %s.\n", recvbuf + 2);
-	printf("%d\n", strlen(recvbuf + 2));
+	int message_length = strlen(recvbuf + 2);
+	if (message_length < 20) {
+		printf("Message received from client: %s.\n", recvbuf + 2);
+	}
+	else {
+		printf("Received %d bytes\n", message_length);
+	}
 }
 
 void print_subscribe_confirmation(SOCKET* socket, char* recvbuf, void* param) {

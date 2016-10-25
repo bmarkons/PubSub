@@ -101,7 +101,7 @@ void ExpandBuffer(TBuffer * circBuffer)
 
 }
 
-void NarrowBuffer(TBuffer * circBuffer)
+void NarrowBuffer(TBuffer* circBuffer)
 {
 	int newBufferSize = circBuffer->bufferSize / 2;
 	TYPE *newBuffer = (TYPE*)calloc(newBufferSize, sizeof(TYPE));
@@ -127,10 +127,14 @@ void NarrowBuffer(TBuffer * circBuffer)
 			circBuffer->pushldx * sizeof(TYPE));						//length beetwen 0 and pushIdx
 	}
 
+	ByteArray* oldBuffer = circBuffer->buffer;
+
 	circBuffer->popldx = 0;
 	circBuffer->pushldx = circBuffer->count;
 	circBuffer->buffer = newBuffer;
 	circBuffer->bufferSize = newBufferSize;
+
+	free(oldBuffer);
 }
 
 void DestoyBuffer(TBuffer * buffer)

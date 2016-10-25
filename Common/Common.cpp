@@ -146,6 +146,9 @@ void wait_for_message(SOCKET * socket, void* param, bool single_receive, message
 		if (ready > 0) {
 			if (receive(socket, &recvbuf)) {
 				message_handler(socket, recvbuf, param);
+				if (single_receive) {
+					break;
+				}
 			}
 			else {
 				printf("Error occured while receiving message from socket.\n");
@@ -156,7 +159,7 @@ void wait_for_message(SOCKET * socket, void* param, bool single_receive, message
 		else if (ready < 0) {
 			break;
 		}
-	} while (!single_receive);
+	} while (true);
 }
 void set_nonblocking_mode(SOCKET * socket)
 {
@@ -188,7 +191,7 @@ int is_ready_for_receive(SOCKET * socket) {
 		fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
 	}
 	else if (iResult == 0) {
-		Sleep(SERVER_SLEEP_TIME);
+		Sleep(DEFAULT_SLEEP_TIME);
 	}
 
 	return iResult;
@@ -209,7 +212,7 @@ int is_ready_for_send(SOCKET * socket) {
 		fprintf(stderr, "select failed with error: %ld\n", WSAGetLastError());
 	}
 	else if (iResult == 0) {
-		Sleep(SERVER_SLEEP_TIME);
+		Sleep(DEFAULT_SLEEP_TIME);
 	}
 
 	return iResult;
