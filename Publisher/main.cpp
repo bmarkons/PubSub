@@ -10,7 +10,6 @@ int main(int argc, char **argv)
 	connectToServer(&connectSocket, argv[1], DEFAULT_PORT);
 	printf("You are connected to PubSubEngine!\n");
 
-
 	switch (TEST)
 	{
 	case 1:

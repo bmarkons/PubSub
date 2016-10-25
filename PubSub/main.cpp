@@ -29,10 +29,14 @@ int main()
 	List thread_list;
 	list_new(&thread_list, sizeof(TThread), free_thread);
 
-	Wrapper wrapper;
+	SOCKET accepting_publisher = INVALID_SOCKET;
+	SOCKET accepting_subscriber = INVALID_SOCKET;
 
+	Wrapper wrapper;
 	wrapper.thread_list = &thread_list;
 	wrapper.topic_contents = &topic_contents;
+	wrapper.accepting_publisher = &accepting_publisher;
+	wrapper.accepting_subscriber = &accepting_subscriber;
 
 	//Create some initial topics
 	load_topics(&wrapper);
@@ -46,16 +50,19 @@ int main()
 
 	/*look for terminated thread and remove them*/
 	thread_collector_handle = CreateThread(NULL, 0, &thread_collector, &wrapper, 0, &thread_collector_id);
-	//add_to_thread_list(wrapper.thread_list, thread_collector_handle, thread_collector_id);
 
 	getchar();
 
-	TerminateThread(thread_collector_handle, 0); 
+	closesocket(accepting_publisher);
+	closesocket(accepting_subscriber);
+
+	TerminateThread(thread_collector_handle, 0);
 	CloseHandle(thread_collector_handle);
-	//ExitThread(thread_collector_id);
 
 	list_destroy(&thread_list);
 	list_destroy(&topic_contents);
+
+	WSACleanup();
 
 	return 0;
 }
