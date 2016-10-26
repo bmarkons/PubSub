@@ -14,7 +14,7 @@ void publishing_loop(SOCKET* socket);
 	@param topic
 	@param socket
 */
-void publish(ByteArray message, ByteArray topic, SOCKET* socket);
+bool publish(ByteArray message, ByteArray topic, SOCKET* socket);
 
 /**
 	Making 2 headers at the beginning of array with size of arrays
