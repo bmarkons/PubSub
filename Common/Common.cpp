@@ -98,41 +98,43 @@ void start_listening(SOCKET* listenSocket, char* port) {
 
 }
 bool send_nonblocking(SOCKET* socket, ByteArray package) {
+	// send package in non blocking mode
 	set_nonblocking_mode(socket);
-	while (true) {
-		int ready = is_ready_for_send(socket);
-		if (ready > 0) {
-			bool success = send_all(socket, package);
-			free(package.array);
-			if (!success) {
-				closesocket(*socket);
-			}
-			return success;
-		}
-		else if (ready < 0) {
-			free(package.array);
-			closesocket(*socket);
-			return false;
-		}
+	bool success = send_all(socket, package);
+	// free sent package data
+	free(package.array);
+
+	if (!success) {
+		closesocket(*socket);
 	}
+
+	return success;
 }
 bool send_all(SOCKET* socket, ByteArray package) {
 	int iResult;
 	int total_sent = 0;
 	int byte_to_send;
 	do {
-		byte_to_send = package.size - total_sent;
-		/*if (byte_to_send > DEFAULT_BUFLEN) {
-			byte_to_send = DEFAULT_BUFLEN;
-		}*/
-		iResult = send(*socket, package.array + total_sent, byte_to_send, 0);
-		total_sent += iResult;
-		if (iResult < 0) {
+		// Check if socket is ready for send
+		int ready = is_ready_for_send(socket);
+
+		if (ready == SOCKET_ERROR) {
 			return false;
+		}
+		else if (ready == 0) {
+			continue;
+		}
+		else {
+			byte_to_send = package.size - total_sent;
+			iResult = send(*socket, package.array + total_sent, byte_to_send, 0);
+			if (iResult == SOCKET_ERROR) {
+				return false;
+			}
+			total_sent += iResult;
 		}
 	} while (total_sent < package.size);
 
-	return iResult == SOCKET_ERROR ? false : true;
+	return true;
 }
 void wait_for_message(SOCKET * socket, void* param, bool single_receive, messageHandler message_handler)
 {
