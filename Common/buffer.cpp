@@ -139,6 +139,10 @@ void NarrowBuffer(TBuffer* circBuffer)
 
 void DestoyBuffer(TBuffer * buffer)
 {
+	ByteArray to_delete;
+	while (Pop(buffer,&to_delete)) {
+		free(to_delete.array);
+	}
 	free(buffer->buffer);
 	DeleteCriticalSection(&buffer->cs);
 }

@@ -5,7 +5,7 @@
 
 void load_topics(Wrapper *wrapper) {
 
-	for (int i = 1; i < 2; i++) {
+	for (int i = 0; i < 10; i++) {
 		ByteArray topic;
 		topic.size = 1;
 		topic.array = (char*)calloc(2, sizeof(char));

@@ -65,7 +65,10 @@ void start_1GB_test(SOCKET *socket) {
 		printf(" - SENT: %0.2f MB\n", (float)(i + 1) / 1024);
 
 
-		publish(message, topic, socket);
+		bool success = publish(message, topic, socket);
+		if (!success) {
+			return;
+		}
 	}
 
 }

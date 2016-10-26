@@ -15,18 +15,102 @@ typedef struct _byte_array {
 
 typedef void(*messageHandler)(SOCKET*, char*, void*);
 
-/* Sockets */
+/**
+	Initialize windows sockets api
+*/
 void InitializeWindowsSockets();
+/**
+	Establish connection via given socket on given ipv4 address and port
+
+	@param socket
+	@param ipv4_address
+	@param port
+*/
 void connectToServer(SOCKET* socket, char* ipv4_address, u_int port);
+/**
+	Close socket and exit
+
+	@param socket
+*/
 void disconnect(SOCKET*);
+/**
+	Start listen socket on given port
+
+	@param listenSocket
+	@param port
+*/
 void start_listening(SOCKET* listenSocket, char* port);
+/**
+	Send message in non blocking mode
+
+	@param socket
+	@param package
+	@return success feedback
+*/
 bool send_nonblocking(SOCKET* socket, ByteArray package);
+/**
+	Send message ensuring whole is sent
+
+	@param socket
+	@param package
+	@return success feedback
+*/
 bool send_all(SOCKET* socket, ByteArray package);
+/**
+	Wait for message in loop and handle received message with passed message handler. 
+
+	@param socket
+	@param param
+	@param single_receive - receive only once and return
+	@param message_handler - handler for received message
+*/
 void wait_for_message(SOCKET* socket, void* param, bool single_receive, messageHandler message_handler);
+/**
+	Set socket in non blocking mode
+
+	@param socket
+*/
 void set_nonblocking_mode(SOCKET* socket);
+/**
+	Check if socket is ready for receive
+
+	@param socket
+	@return code
+*/
 int is_ready_for_receive(SOCKET* socket);
+/**
+	Check if socket is ready for send
+
+	@param socket
+	@return code
+*/
 int is_ready_for_send(SOCKET * socket);
-int recv_all(SOCKET* socket, char* recvbuff, int message_length);
+/**
+	Receive message from socket ensuring whole message is read
+
+	@param socket
+	@param recvbuf
+	@param message_length
+	@return success code
+*/
+int recv_all(SOCKET* socket, char* recvbuf, int message_length);
+/**
+	Receive message from given socket and stores in buffer
+
+	@param socket
+	@param recvbuf
+	@return success feedback
+*/
 bool receive(SOCKET* socket, char** recvbuf);
+/**
+	Gets message as string
+
+	@param message
+*/
 void input_message(char* message);
+/**
+	Gets topic as string
+
+	@param topic
+*/
 void input_topic(char* topic);

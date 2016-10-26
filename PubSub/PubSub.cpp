@@ -5,7 +5,7 @@
 void free_topic_content(void * data) {
 	TopicContent* topic_content = (TopicContent*)data;
 	list_destroy(&topic_content->sockets);
-	free(topic_content->message_buffer.buffer);
+	DestoyBuffer(&topic_content->message_buffer);
 	free(topic_content->topic.array);
 }
 
@@ -180,13 +180,9 @@ bool push_try(ByteArray topic, ByteArray message, List* topic_contents) {
 	}
 
 	TopicContent* topic_content = (TopicContent*)node->data;
-	
-	bool success = false;
-	while (!success) {
-		success = Push(&topic_content->message_buffer, message);
-		if (!success) {
-			Sleep(DEFAULT_SLEEP_TIME);
-		}
+
+	while (!Push(&topic_content->message_buffer, message)) {
+		Sleep(100);
 	}
 
 	return true;
