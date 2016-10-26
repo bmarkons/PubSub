@@ -57,7 +57,7 @@ bool send_nonblocking(SOCKET* socket, ByteArray package);
 */
 bool send_all(SOCKET* socket, ByteArray package);
 /**
-	Wait for message in loop and handle received message with passed message handler. 
+	Wait for message in loop and handle received message with passed message handler.
 
 	@param socket
 	@param param
@@ -93,7 +93,7 @@ int is_ready_for_send(SOCKET * socket);
 	@param message_length
 	@return success code
 */
-int recv_all(SOCKET* socket, char* recvbuf, int message_length);
+bool recv_all(SOCKET* socket, char* recvbuf, int message_length);
 /**
 	Receive message from given socket and stores in buffer
 
@@ -102,6 +102,22 @@ int recv_all(SOCKET* socket, char* recvbuf, int message_length);
 	@return success feedback
 */
 bool receive(SOCKET* socket, char** recvbuf);
+/**
+	receive message part of byte package
+
+	@param socket
+	@param recvbuf
+	@param message_length
+*/
+bool receive_message(SOCKET* socket, char** recvbuf, u_short message_length);
+/**
+	receive header part of byte package
+
+	@param socket
+	@param recvbuf
+	@param message_length
+*/
+bool receive_header(SOCKET* socket, OUT u_short* message_length);
 /**
 	Gets message as string
 

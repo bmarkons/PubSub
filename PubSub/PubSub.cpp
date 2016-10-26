@@ -69,6 +69,7 @@ ListNode* create_topic(Wrapper* wrapper, ByteArray topic) {
 
 	DWORD consume_thread_id;
 	HANDLE consume_message_handle = CreateThread(NULL, 0, &consume_messages, node->data, 0, &consume_thread_id);
+	SetThreadPriority(consume_message_handle, THREAD_PRIORITY_ABOVE_NORMAL);
 
 	add_to_thread_list(wrapper->thread_list,            //list
 		consume_message_handle,        //handle
@@ -256,9 +257,10 @@ DWORD WINAPI consume_messages(LPVOID lpParam) {
 			send_to_sockets(&topic_content->sockets, message);
 			free(message.array);
 		}
-
-		if (CONSUME_MESSAGES_SLEEP != 0) {
-			Sleep(CONSUME_MESSAGES_SLEEP);
+		else {
+			if (CONSUME_MESSAGES_SLEEP != 0) {
+				Sleep(CONSUME_MESSAGES_SLEEP);
+			}
 		}
 	}
 	return 0;

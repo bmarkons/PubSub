@@ -139,26 +139,24 @@ bool send_all(SOCKET* socket, ByteArray package) {
 void wait_for_message(SOCKET * socket, void* param, bool single_receive, messageHandler message_handler)
 {
 	char *recvbuf = NULL;
-	set_nonblocking_mode(socket);
-
 	printf("Waiting for messages...\n");
 	do
 	{
-		int ready = is_ready_for_receive(socket);
-		if (ready > 0) {
-			if (receive(socket, &recvbuf)) {
-				message_handler(socket, recvbuf, param);
-				if (single_receive) {
-					break;
-				}
-			}
-			else {
-				printf("Error occured while receiving message from socket.\n");
-				closesocket(*socket);
-				break;
-			}
+		// Receive one message
+		bool success = receive(socket, &recvbuf);
+
+		// Error during receiving message
+		if (!success) {
+			printf("Error occured while receiving message from socket.\n");
+			closesocket(*socket);
+			break;
 		}
-		else if (ready < 0) {
+
+		// Do something with received message
+		message_handler(socket, recvbuf, param);
+
+		// Check if only one received message wanted
+		if (single_receive) {
 			break;
 		}
 	} while (true);
@@ -219,48 +217,68 @@ int is_ready_for_send(SOCKET * socket) {
 
 	return iResult;
 }
-int recv_all(SOCKET* socket, char* recvbuff, int message_length) {
-
+bool recv_all(SOCKET* socket, char* recvbuff, int message_length) {
 	int total_received = 0;
-
 	int iResult;
-	int byte_to_receive;
+	int ready;
+	int bytes_num_to_receive;
 	do {
-		byte_to_receive = message_length - total_received;
-		if (byte_to_receive > DEFAULT_BUFLEN) {
-			byte_to_receive = DEFAULT_BUFLEN;
+		ready = is_ready_for_receive(socket);
+		if (ready == SOCKET_ERROR) {
+			closesocket(*socket);
+			return false;
 		}
-		iResult = recv(*socket, recvbuff + total_received, byte_to_receive, 0);
-		if (iResult < 0) {
-			printf("Unable to connect to server. Error code: %d\n", WSAGetLastError());
-			return iResult;
+		else if (ready == 0) {
+			continue;
 		}
-		total_received += iResult;
+		else {
+			bytes_num_to_receive = message_length - total_received;
+			iResult = recv(*socket, recvbuff + total_received, bytes_num_to_receive, 0);
+			if (iResult < 0) {
+				printf("Error during recv. Error code: %d\n", WSAGetLastError());
+				return false;
+			}
+			total_received += iResult;
+		}
 	} while (total_received < message_length);
 
-	return iResult;
+	return true;
 }
 bool receive(SOCKET* socket, char** recvbuf) {
-
-	int iResult;
+	bool success;
 	u_short message_length = 0;
 
-	char header[MAIN_HEADER_SIZE];
-	iResult = recv_all(socket, header, MAIN_HEADER_SIZE);
-	memcpy(&message_length, header, sizeof(u_short));
-
-	if (iResult < 0) {
+	success = receive_header(socket, &message_length);
+	if (!success) {
 		return false;
 	}
 
+	success = receive_message(socket, recvbuf, message_length);
+	if (!success) {
+		return false;
+	}
+
+	return true;
+}
+bool receive_message(SOCKET* socket, char** recvbuf, u_short message_length) {
+	// allocate space for receive buffer
 	*recvbuf = (char*)calloc(message_length + 1, sizeof(char));
-	iResult = recv_all(socket, *recvbuf, message_length);
-
-	if (iResult < 0) {
+	// receive message
+	bool success = recv_all(socket, *recvbuf, message_length);
+	// free on error
+	if (!success) {
 		free(*recvbuf);
-		return false;
 	}
 
+	return success;
+}
+bool receive_header(SOCKET* socket, OUT u_short* message_length) {
+	char header[MAIN_HEADER_SIZE];
+	bool success = recv_all(socket, header, MAIN_HEADER_SIZE);
+	if (!success) {
+		return false;
+	}
+	memcpy(message_length, header, sizeof(u_short));
 	return true;
 }
 void input_topic(char* topic) {
