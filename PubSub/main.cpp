@@ -29,14 +29,11 @@ int main()
 	List thread_list;
 	list_new(&thread_list, sizeof(TThread), free_thread);
 
-	SOCKET accepting_publisher = INVALID_SOCKET;
-	SOCKET accepting_subscriber = INVALID_SOCKET;
 
 	Wrapper wrapper;
 	wrapper.thread_list = &thread_list;
 	wrapper.topic_contents = &topic_contents;
-	wrapper.accepting_publisher = &accepting_publisher;
-	wrapper.accepting_subscriber = &accepting_subscriber;
+	wrapper.is_app_end = false;
 
 	//Create some initial topics
 	load_topics(&wrapper);
@@ -53,14 +50,10 @@ int main()
 
 	getchar();
 
-	closesocket(accepting_publisher);
-	closesocket(accepting_subscriber);
+	wrapper.is_app_end = true;
 
-
-	TerminateThread(thread_collector_handle, 0);
 	CloseHandle(thread_collector_handle);
 	
-
 	list_destroy(&thread_list);
 	list_destroy(&topic_contents);
 

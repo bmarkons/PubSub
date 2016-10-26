@@ -67,8 +67,12 @@ ListNode* create_topic(Wrapper* wrapper, ByteArray topic) {
 	TopicContent new_topic = initializeTopic(topic);
 	ListNode* node = list_append(wrapper->topic_contents, &new_topic);
 
+	ParamStruct *paramStruct = (ParamStruct*)malloc(sizeof(ParamStruct));
+	paramStruct->param1 = node->data;
+	paramStruct->wrapper = wrapper;
+
 	DWORD consume_thread_id;
-	HANDLE consume_message_handle = CreateThread(NULL, 0, &consume_messages, node->data, 0, &consume_thread_id);
+	HANDLE consume_message_handle = CreateThread(NULL, 0, &consume_messages, paramStruct, 0, &consume_thread_id);
 	SetThreadPriority(consume_message_handle, THREAD_PRIORITY_ABOVE_NORMAL);
 
 	add_to_thread_list(wrapper->thread_list,            //list
@@ -105,17 +109,30 @@ bool is_equal_string(ByteArray s1, ByteArray s2) {
 DWORD WINAPI accept_publisher(LPVOID lpParam) {
 
 	Wrapper* wrapper = (Wrapper*)lpParam;
-	start_listening(wrapper->accepting_publisher, LISTEN_PUBLISHER_PORT);
+	SOCKET accepting_publisher = INVALID_SOCKET;
+
+	start_listening(&accepting_publisher, LISTEN_PUBLISHER_PORT);
 	printf("PubSubEngine is ready to accept publishers.\n");
+	SOCKET socket = INVALID_SOCKET;
 
 	while (true) {
-		SOCKET socket = INVALID_SOCKET;
-		socket = accept(*wrapper->accepting_publisher, NULL, NULL);
+
+		if (wrapper->is_app_end) {
+			break;
+		}
+
+		socket = INVALID_SOCKET;
+		socket = accept(accepting_publisher, NULL, NULL);
+		
 		if (socket != INVALID_SOCKET)
 		{
 			printf("[Publisher] Connected.\n");
 			DWORD listen_publisher_id;
-			ParamStruct param;
+			/*ParamStruct* param = (ParamStruct*)malloc(sizeof(ParamStruct));
+			param->param1 = &socket;
+			param->wrapper = wrapper;*/
+
+			ParamStruct1 param;
 			param.socket = socket;
 			param.wrapper = wrapper;
 
@@ -127,17 +144,18 @@ DWORD WINAPI accept_publisher(LPVOID lpParam) {
 		}
 	}
 
+	closesocket(socket);
+	closesocket(accepting_publisher);
 	return 0;
 }
 
 DWORD WINAPI listen_publisher(LPVOID lpParam) {
-	ParamStruct* param = (ParamStruct*)lpParam;
+	ParamStruct1* param = (ParamStruct1*)lpParam;
 	SOCKET socket = param->socket;
 
-	void* wrapper = param->wrapper;
+	wait_for_message(&socket, param->wrapper, false, unpack_and_push);
 
-	wait_for_message(&socket, wrapper, false, unpack_and_push);
-
+	//free(param);
 	return 0;
 }
 
@@ -195,19 +213,28 @@ bool push_try(ByteArray topic, ByteArray message, List* topic_contents) {
 
 DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 	Wrapper *wrapper = (Wrapper*)lpParam;
+	SOCKET accepting_subscriber = INVALID_SOCKET;
 
-	start_listening(wrapper->accepting_subscriber, LISTEN_SUBSCRIBER_PORT);
+	start_listening(&accepting_subscriber, LISTEN_SUBSCRIBER_PORT);
 	printf("PubSubEngine is ready to accept subscribers.\n");
 
-	SOCKET socket;
 
 	while (true) {
-		socket = INVALID_SOCKET;
-		socket = accept(*wrapper->accepting_subscriber, NULL, NULL);
+
+		if (wrapper->is_app_end) {
+			break;
+		}
+
+		SOCKET socket = INVALID_SOCKET;
+		socket = accept(accepting_subscriber, NULL, NULL);
 		if (socket != INVALID_SOCKET) {
 			printf("[Subscriber] Connected.\n");
 			DWORD listen_subscriber_id;
-			ParamStruct param;
+			/*ParamStruct* param = (ParamStruct*)malloc(sizeof(ParamStruct));
+			param->param1 = &socket;
+			param->wrapper = wrapper;*/
+
+			ParamStruct1 param;
 			param.socket = socket;
 			param.wrapper = wrapper;
 
@@ -218,28 +245,35 @@ DWORD WINAPI accept_subscriber(LPVOID lpParam) {
 				listen_subscriber_id);           //handle_id
 		}
 	}
-
+	closesocket(accepting_subscriber);
 	return 0;
 }
 
 DWORD WINAPI listen_subscriber(LPVOID lpParam) {
-	ParamStruct* param = (ParamStruct*)lpParam;
+	ParamStruct1* param = (ParamStruct1*)lpParam;
 	SOCKET socket = param->socket;
-	void* wrapper = param->wrapper;
 
-	wait_for_message(&socket, wrapper, true, push_socket_on_topic);
+	wait_for_message(&socket, param->wrapper, true, push_socket_on_topic);
 
 	return 0;
 }
 
 DWORD WINAPI consume_messages(LPVOID lpParam) {
-	TopicContent *topic_content = (TopicContent*)lpParam;
+	ParamStruct* param = (ParamStruct*)lpParam;
+	TopicContent *topic_content = (TopicContent*)param->param1;
+	Wrapper* wrapper = param->wrapper;
+
 	ByteArray message;
 	int num_of_removed = 0;
 	clock_t start = clock();
 	clock_t now;
 	float delta_time = 0;
 	while (true) {
+
+		if (wrapper->is_app_end) {
+			break;
+		}
+
 		now = clock();
 		delta_time = (float)(now - start) / CLOCKS_PER_SEC;
 		num_of_removed = 0;
@@ -263,6 +297,8 @@ DWORD WINAPI consume_messages(LPVOID lpParam) {
 			}
 		}
 	}
+
+	free(param);
 	return 0;
 }
 /*return number of deleted socket from list*/
@@ -381,20 +417,14 @@ void send_to_subscriber(SOCKET * socket, ByteArray message)
 DWORD WINAPI thread_collector(LPVOID lpParam) {
 
 	Wrapper *wrapper = (Wrapper*)lpParam;
-	int result;
 	while (true) {
 
-		result = WaitForSingleObject(GetCurrentThread(), 0);
-		if (result == WAIT_OBJECT_0) {
-			CloseHandle(GetCurrentThread());
+		if (wrapper->is_app_end) {
 			break;
 		}
-		/*	printf("\nBefore");
-			print_all_threads(wrapper->thread_list);*/
+
 		find_and_remove_terminated(wrapper->thread_list);
 
-		//printf("\nAfter");
-		//print_all_threads(wrapper->thread_list);
 		Sleep(THREAD_COLLECTOR_SLEEP);
 	}
 	return 0;
