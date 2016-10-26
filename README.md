@@ -1,2 +1,2 @@
 # PubSub
-PubSub pattern implementation in C
+PubSub service implementation in VC++

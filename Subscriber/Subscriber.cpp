@@ -60,6 +60,7 @@ void print_received_message(SOCKET* socket, char* recvbuf, void* param) {
 	else {
 		printf(" Received %d bytes\n", message_length);
 	}
+	Sleep(DEFAULT_SLEEP_TIME);
 }
 
 void print_subscribe_confirmation(SOCKET* socket, char* recvbuf, void* param) {
