@@ -19,14 +19,19 @@ typedef struct _thread {
 typedef struct _wrapper {
 	List* thread_list;
 	List* topic_contents;
-	SOCKET* accepting_publisher;
-	SOCKET* accepting_subscriber;
+	bool is_app_end;
 }Wrapper;
 
+
 typedef struct _param_struct {
-	SOCKET socket;
 	Wrapper* wrapper;
+	void* param1;	
 }ParamStruct;
+
+typedef struct _param_struct1 {
+	Wrapper* wrapper;
+	SOCKET socket;
+}ParamStruct1;
 
 #pragma region PUBLISHER
 /**
